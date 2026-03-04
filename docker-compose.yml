@@ -1,0 +1,31 @@
+services:
+  weather-app:
+    build: .
+    ports:
+      - "8080:80"
+    restart: always
+    environment:
+      # ============================================
+      # Weather API Sources Configuration
+      # ============================================
+      
+      # Open-Meteo (free, no API key required)
+      - OPENMETEO_ENABLED=true
+      
+      # OpenWeatherMap (requires free API key from https://openweathermap.org/api)
+      - OPENWEATHER_ENABLED=false
+      - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY:-}
+      
+      # WeatherAPI (requires free API key from https://www.weatherapi.com/)
+      - WEATHERAPI_ENABLED=false
+      - WEATHERAPI_KEY=${WEATHERAPI_KEY:-}
+      
+      # Mock data (for testing without API calls)
+      - MOCK_ENABLED=false
+      
+      # ============================================
+      # Default Location (fallback when geolocation denied)
+      # ============================================
+      - DEFAULT_LAT=${DEFAULT_LAT:-40.7128}
+      - DEFAULT_LON=${DEFAULT_LON:--74.0060}
+      - DEFAULT_LOCATION_NAME=${DEFAULT_LOCATION_NAME:-New York}
