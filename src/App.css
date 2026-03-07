@@ -95,6 +95,7 @@
   border-radius: var(--card-radius-sm);
   font-weight: 600;
   transition: all 0.2s ease;
+  min-height: 44px;
 }
 
 .retry-button:hover {
@@ -119,8 +120,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
@@ -149,6 +150,208 @@
   color: var(--text-muted);
 }
 
+/* Location search */
+.location-search {
+  position: relative;
+  width: 100%;
+}
+
+.location-search-input {
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  padding-left: 2.5rem;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--card-radius-sm);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.95rem;
+  min-height: 44px;
+  transition: all 0.2s ease;
+}
+
+.location-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.location-search-input:focus {
+  outline: none;
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 0 2px rgba(88, 209, 235, 0.15);
+}
+
+.location-search-icon {
+  position: absolute;
+  left: var(--spacing-sm);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
+}
+
+.location-search-dropdown {
+  position: absolute;
+  top: calc(100% + var(--spacing-xs));
+  left: 0;
+  right: 0;
+  background: rgba(13, 17, 23, 0.95);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--card-radius-sm);
+  box-shadow: var(--shadow-lg);
+  z-index: 50;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.location-search-item {
+  padding: var(--spacing-sm) var(--spacing-md);
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  transition: all 0.15s ease;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+.location-search-item:hover,
+.location-search-item:focus {
+  background: var(--glass-bg-hover);
+  color: var(--text-primary);
+}
+
+.location-search-item + .location-search-item {
+  border-top: 1px solid var(--glass-border);
+}
+
+/* Weather alerts */
+.weather-alerts {
+  width: 100%;
+}
+
+.weather-alert {
+  padding: var(--spacing-md);
+  border-radius: var(--card-radius-sm);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  margin-bottom: var(--spacing-sm);
+}
+
+.weather-alert:last-child {
+  margin-bottom: 0;
+}
+
+.weather-alert--extreme {
+  border-left: 4px solid var(--accent-red);
+  background: rgba(248, 81, 73, 0.05);
+}
+
+.weather-alert--severe {
+  border-left: 4px solid var(--accent-orange);
+  background: rgba(219, 109, 40, 0.05);
+}
+
+.weather-alert--moderate {
+  border-left: 4px solid var(--accent-yellow);
+  background: rgba(210, 153, 34, 0.05);
+}
+
+.weather-alert--minor {
+  border-left: 4px solid var(--accent-blue);
+  background: rgba(77, 155, 240, 0.05);
+}
+
+.weather-alert-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 var(--spacing-xs);
+}
+
+.weather-alert-description {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.weather-alert-time {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: var(--spacing-xs);
+}
+
+/* Precipitation chart */
+.precipitation-chart {
+  width: 100%;
+  position: relative;
+}
+
+.precipitation-chart-container {
+  width: 100%;
+  height: 200px;
+  min-height: 150px;
+}
+
+@media (min-width: 768px) {
+  .precipitation-chart-container {
+    height: 250px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .precipitation-chart-container {
+    height: 300px;
+  }
+}
+
+/* Expanded metric grid */
+.detailed-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-sm);
+}
+
+@media (min-width: 1200px) {
+  .detailed-metrics-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+}
+
+/* Hourly scroll container */
+.hourly-scroll {
+  display: flex;
+  gap: var(--spacing-sm);
+  overflow-x: auto;
+  padding-bottom: var(--spacing-sm);
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--glass-border) transparent;
+}
+
+.hourly-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.hourly-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.hourly-scroll::-webkit-scrollbar-thumb {
+  background: var(--glass-border);
+  border-radius: 3px;
+}
+
+.hourly-scroll-item {
+  flex: 0 0 auto;
+  min-width: 72px;
+  min-height: 44px;
+}
+
 /* Footer */
 .app-footer {
   text-align: center;
@@ -169,4 +372,23 @@
 
 .app-footer a:hover {
   color: var(--accent-cyan);
+}
+
+/* Mobile improvements */
+@media (max-width: 767px) {
+  button,
+  .retry-button,
+  .refresh-button,
+  .location-search-item,
+  .location-search-input {
+    min-height: 44px;
+  }
+
+  .app-header {
+    gap: var(--spacing-sm);
+  }
+
+  main {
+    gap: var(--spacing-sm);
+  }
 }
