@@ -98,8 +98,10 @@ export function useGeolocation() {
 
   useEffect(() => {
     mountedRef.current = true;
-    resolve();
+    // Schedule resolve to avoid synchronous setState within effect body
+    const id = setTimeout(() => resolve(), 0);
     return () => {
+      clearTimeout(id);
       mountedRef.current = false;
     };
   }, [resolve]);

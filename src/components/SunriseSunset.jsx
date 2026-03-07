@@ -1,5 +1,5 @@
 import { Sunrise, Sunset } from 'lucide-react';
-import { getSunPosition, getSunriseSunset, getDayLength } from '../utils/astronomy';
+import { getSunriseSunset, getDayLength } from '../utils/astronomy';
 
 function formatTime(date) {
   if (!date) return '--:--';

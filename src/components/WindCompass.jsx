@@ -21,7 +21,6 @@ export default function WindCompass({ data, unit }) {
   const cx = size / 2;
   const cy = size / 2;
   const outerR = 90;
-  const tickR = 82;
   const labelR = 70;
   const dir = windDirection ?? 0;
 

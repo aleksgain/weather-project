@@ -1,7 +1,7 @@
 import { Sun, Wind, Droplets, Thermometer, Gauge, Eye, Droplet, Compass, Sunrise, Sunset, CloudRain, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { formatTemp, formatSpeed, formatDistance, getUnitLabel } from '../utils/unitConversion';
 
-function MetricCard({ title, value, unitLabel, description, Icon, color }) {
+function MetricCard({ title, value, unitLabel, description, color }) {
   return (
     <article
       className="glass-panel"

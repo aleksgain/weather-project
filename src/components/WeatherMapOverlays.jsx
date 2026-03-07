@@ -59,7 +59,7 @@ export default function WeatherMapOverlays({ lat, lon, locationName, weatherSour
   const longitude = typeof lon === 'number' && !Number.isNaN(lon) ? lon : -74.006;
   const center = useMemo(() => [latitude, longitude], [latitude, longitude]);
   const displayName = locationName || `${latitude.toFixed(2)}\u00b0, ${longitude.toFixed(2)}\u00b0`;
-  const icon = useMemo(createCustomIcon, []);
+  const icon = useMemo(() => createCustomIcon(), []);
   const rainViewerPath = useRainViewerTimestamp();
 
   const owmKey = weatherSources?.openweathermap?.apiKey || weatherSources?.owmApiKey || null;

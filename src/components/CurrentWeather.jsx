@@ -118,6 +118,21 @@ function WeatherAnimationBackground({ conditionType, iconColor }) {
   return null;
 }
 
+function renderWeatherIcon(condition, iconColor) {
+  const Icon = getWeatherIcon(condition);
+  return (
+    <Icon
+      size={80}
+      strokeWidth={1.2}
+      color={iconColor}
+      style={{
+        filter: `drop-shadow(0 0 20px ${iconColor}40)`,
+      }}
+      aria-hidden="true"
+    />
+  );
+}
+
 export default function CurrentWeather({ data, unit }) {
   if (!data?.current) return null;
 
@@ -125,7 +140,6 @@ export default function CurrentWeather({ data, unit }) {
   const precipProbability = data.current.precipProbability;
   const sourceCount = data.current.sourceCount || data.sourceCount;
   const confidence = data.current.confidence || data.confidence;
-  const WeatherIcon = getWeatherIcon(condition);
   const iconColor = getIconColor(condition);
   const conditionType = getConditionType(condition);
 
@@ -184,15 +198,7 @@ export default function CurrentWeather({ data, unit }) {
           gap: 'var(--spacing-lg)',
         }}
       >
-        <WeatherIcon
-          size={80}
-          strokeWidth={1.2}
-          color={iconColor}
-          style={{
-            filter: `drop-shadow(0 0 20px ${iconColor}40)`,
-          }}
-          aria-hidden="true"
-        />
+        {renderWeatherIcon(condition, iconColor)}
         <div
           className="mono"
           style={{
