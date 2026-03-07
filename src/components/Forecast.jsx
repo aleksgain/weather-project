@@ -1,6 +1,26 @@
 import { getWeatherIcon } from '../utils/iconMap';
 import { formatTemp } from '../utils/unitConversion';
 
+/** Tiny wind direction arrow rendered via CSS rotation */
+function WindArrow({ direction }) {
+  if (direction == null) return null;
+  return (
+    <span
+      style={{
+        display: 'inline-block',
+        fontSize: '0.7rem',
+        color: 'var(--text-muted)',
+        transform: `rotate(${direction}deg)`,
+        lineHeight: 1,
+      }}
+      aria-label={`Wind direction ${direction} degrees`}
+      title={`Wind ${direction}°`}
+    >
+      ↑
+    </span>
+  );
+}
+
 export default function Forecast({ data, unit }) {
   if (!data?.hourly || !data?.daily) return null;
 
@@ -38,6 +58,8 @@ export default function Forecast({ data, unit }) {
             const Icon = getWeatherIcon(hour.condition);
             const hourNum = new Date(hour.time).getHours();
             const isNow = index === 0;
+            const precipProb = hour.precipProbability ?? hour.precipitationProbability ?? null;
+            const windDir = hour.windDirection ?? null;
 
             return (
               <div
@@ -81,6 +103,34 @@ export default function Forecast({ data, unit }) {
                 >
                   {formatTemp(hour.temp, unit)}°
                 </span>
+
+                {/* Precipitation probability */}
+                {precipProb != null && (
+                  <span
+                    style={{
+                      fontSize: '0.65rem',
+                      color: 'var(--accent-blue, #60a5fa)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '2px',
+                    }}
+                  >
+                    <span
+                      style={{
+                        display: 'inline-block',
+                        width: '4px',
+                        height: '4px',
+                        borderRadius: '50%',
+                        background: 'var(--accent-blue, #60a5fa)',
+                      }}
+                      aria-hidden="true"
+                    />
+                    {Math.round(precipProb)}%
+                  </span>
+                )}
+
+                {/* Wind direction arrow */}
+                {windDir != null && <WindArrow direction={windDir} />}
               </div>
             );
           })}
@@ -114,6 +164,7 @@ export default function Forecast({ data, unit }) {
             const dayName = isToday
               ? 'Today'
               : date.toLocaleDateString('en-US', { weekday: 'short' });
+            const precipProb = day.precipProbability ?? day.precipitationProbability ?? null;
 
             // Calculate bar positions based on actual temperature range
             const lowPercent = ((day.low - minTemp) / tempRange) * 100;
@@ -152,6 +203,19 @@ export default function Forecast({ data, unit }) {
                   style={{ color: 'var(--text-secondary)', flexShrink: 0 }}
                   aria-hidden="true"
                 />
+
+                {/* Precipitation probability */}
+                <span
+                  className="mono"
+                  style={{
+                    fontSize: '0.75rem',
+                    color: 'var(--accent-blue, #60a5fa)',
+                    minWidth: '32px',
+                    textAlign: 'right',
+                  }}
+                >
+                  {precipProb != null ? `${Math.round(precipProb)}%` : ''}
+                </span>
 
                 {/* Low temp */}
                 <span
