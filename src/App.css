@@ -1,5 +1,18 @@
 /* App-specific styles */
 
+/* Widgets row (SunriseSunset + WindCompass) */
+.widgets-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--spacing-md);
+}
+
+@media (min-width: 768px) {
+  .widgets-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 /* Loading state */
 .loading-container {
   display: flex;

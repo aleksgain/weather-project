@@ -161,7 +161,7 @@ function App() {
 
         <PrecipitationChart data={displayData} unit={unit} />
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
+        <div className="widgets-row">
           <SunriseSunset data={displayData} />
           <WindCompass data={displayData} unit={unit} />
         </div>
