@@ -1,4 +1,4 @@
-import { Sun, Wind, Droplets, Thermometer, Gauge, Eye } from 'lucide-react';
+import { Sun, Wind, Droplets, Thermometer, Gauge, Eye, Droplet, Compass, Sunrise, Sunset, CloudRain, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { formatTemp, formatSpeed, formatDistance, getUnitLabel } from '../utils/unitConversion';
 
 function MetricCard({ title, value, unitLabel, description, Icon, color }) {
@@ -103,15 +103,74 @@ function getPressureDescription(hPa) {
   return 'Normal';
 }
 
+function getWindDirection(degrees) {
+  if (typeof degrees !== 'number' || Number.isNaN(degrees)) return 'N/A';
+  const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+  const index = Math.round(((degrees % 360) + 360) % 360 / 22.5) % 16;
+  return directions[index];
+}
+
+function getPressureTrendIcon(pressure) {
+  if (pressure > 1013) return TrendingUp;
+  if (pressure < 1013) return TrendingDown;
+  return Minus;
+}
+
+function getPressureTrendDescription(pressure) {
+  if (pressure > 1020) return 'Rising · Clear skies likely';
+  if (pressure > 1013) return 'Rising';
+  if (pressure < 1005) return 'Falling · Storm possible';
+  if (pressure < 1013) return 'Falling';
+  return 'Steady';
+}
+
+function getAQIDescription(aqi) {
+  if (aqi <= 1) return 'Good';
+  if (aqi <= 2) return 'Moderate';
+  if (aqi <= 3) return 'Unhealthy (Sensitive)';
+  if (aqi <= 4) return 'Unhealthy';
+  return 'Very Unhealthy';
+}
+
+function getAQIColor(aqi) {
+  if (aqi <= 1) return 'var(--accent-green)';
+  if (aqi <= 2) return 'var(--accent-yellow)';
+  if (aqi <= 3) return 'var(--accent-orange)';
+  return 'var(--accent-red)';
+}
+
+function formatTime(timestamp) {
+  if (!timestamp) return '--:--';
+  const date = new Date(timestamp * 1000);
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatPressure(hPa, unit) {
+  if (unit === 'imperial') {
+    return (hPa * 0.02953).toFixed(2);
+  }
+  return Math.round(hPa);
+}
+
+function getPressureUnitLabel(unit) {
+  return unit === 'imperial' ? 'inHg' : 'hPa';
+}
+
 export default function DetailedMetrics({ data, unit }) {
   if (!data?.current) return null;
 
-  const { uvIndex, humidity, windSpeed, feelsLike, pressure, visibility, temp } = data.current;
+  const {
+    uvIndex, humidity, windSpeed, feelsLike, pressure, visibility, temp,
+    windDeg, windGust, sunrise, sunset, precipitation, airQuality,
+  } = data.current;
 
   // Calculate dew point approximation (Magnus formula simplified), clamp inputs to avoid NaN
   const safeTemp = typeof temp === 'number' && !Number.isNaN(temp) ? temp : 20;
   const safeHumidity = typeof humidity === 'number' && !Number.isNaN(humidity) ? Math.min(100, Math.max(0, humidity)) : 50;
   const dewPoint = safeTemp - (100 - safeHumidity) / 5;
+
+  const pressureValue = pressure ?? 1013;
+  const PressureTrendIcon = getPressureTrendIcon(pressureValue);
 
   return (
     <section
@@ -120,6 +179,7 @@ export default function DetailedMetrics({ data, unit }) {
         gridTemplateColumns: 'repeat(2, 1fr)',
         gap: 'var(--spacing-md)',
       }}
+      className="detailed-metrics-grid"
       aria-label="Detailed weather metrics"
     >
       <MetricCard
@@ -134,7 +194,7 @@ export default function DetailedMetrics({ data, unit }) {
         title="Humidity"
         value={humidity ?? 0}
         unitLabel="%"
-        description={`${getHumidityDescription(humidity ?? 0)} · Dew ${formatTemp(dewPoint, unit)}°`}
+        description={getHumidityDescription(humidity ?? 0)}
         Icon={Droplets}
         color="var(--accent-blue)"
       />
@@ -162,9 +222,9 @@ export default function DetailedMetrics({ data, unit }) {
       />
       <MetricCard
         title="Pressure"
-        value={pressure ?? 1013}
-        unitLabel="hPa"
-        description={getPressureDescription(pressure)}
+        value={formatPressure(pressureValue, unit)}
+        unitLabel={getPressureUnitLabel(unit)}
+        description={getPressureDescription(pressureValue)}
         Icon={Gauge}
         color="var(--accent-purple)"
       />
@@ -176,6 +236,56 @@ export default function DetailedMetrics({ data, unit }) {
         Icon={Eye}
         color="var(--accent-green)"
       />
+      <MetricCard
+        title="Dew Point"
+        value={formatTemp(dewPoint, unit)}
+        unitLabel="°"
+        description={dewPoint > 20 ? 'Muggy' : dewPoint > 10 ? 'Comfortable' : 'Dry'}
+        Icon={Droplet}
+        color="var(--accent-blue)"
+      />
+      <MetricCard
+        title="Wind Direction"
+        value={getWindDirection(windDeg)}
+        unitLabel=""
+        description={windGust ? `Gusts ${formatSpeed(windGust, unit)} ${getUnitLabel('speed', unit)}` : 'No gusts'}
+        Icon={Compass}
+        color="var(--accent-cyan)"
+      />
+      <MetricCard
+        title="Sunrise"
+        value={formatTime(sunrise)}
+        unitLabel=""
+        description={sunset ? `Sunset ${formatTime(sunset)}` : ''}
+        Icon={Sunrise}
+        color="var(--accent-yellow)"
+      />
+      <MetricCard
+        title="Precipitation"
+        value={precipitation ?? 0}
+        unitLabel={unit === 'imperial' ? 'in' : 'mm'}
+        description={(precipitation ?? 0) > 10 ? 'Heavy' : (precipitation ?? 0) > 2 ? 'Moderate' : 'Light or none'}
+        Icon={CloudRain}
+        color="var(--accent-blue)"
+      />
+      <MetricCard
+        title="Pressure Trend"
+        value={formatPressure(pressureValue, unit)}
+        unitLabel={getPressureUnitLabel(unit)}
+        description={getPressureTrendDescription(pressureValue)}
+        Icon={PressureTrendIcon}
+        color="var(--accent-purple)"
+      />
+      {airQuality != null && (
+        <MetricCard
+          title="Air Quality"
+          value={airQuality}
+          unitLabel="AQI"
+          description={getAQIDescription(airQuality)}
+          Icon={Wind}
+          color={getAQIColor(airQuality)}
+        />
+      )}
     </section>
   );
 }
