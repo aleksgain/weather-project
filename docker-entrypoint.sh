@@ -11,7 +11,8 @@ window.__WEATHER_CONFIG__ = {
   OPENWEATHER_ENABLED: "${OPENWEATHER_ENABLED:-false}",
   WEATHERAPI_ENABLED: "${WEATHERAPI_ENABLED:-false}",
   MOCK_ENABLED: "${MOCK_ENABLED:-false}",
-  
+  NWS_ENABLED: "${NWS_ENABLED:-true}",
+
   // API Keys (keep these secret in production!)
   OPENWEATHER_API_KEY: "${OPENWEATHER_API_KEY:-}",
   WEATHERAPI_KEY: "${WEATHERAPI_KEY:-}",
@@ -29,6 +30,7 @@ echo "  - Open-Meteo: ${OPENMETEO_ENABLED:-true}"
 echo "  - OpenWeatherMap: ${OPENWEATHER_ENABLED:-false}"
 echo "  - WeatherAPI: ${WEATHERAPI_ENABLED:-false}"
 echo "  - Mock Data: ${MOCK_ENABLED:-false}"
+echo "  - NWS: ${NWS_ENABLED:-true}"
 echo "  - Default Location: ${DEFAULT_LOCATION_NAME:-New York}"
 # Note: API keys are never logged for security
 

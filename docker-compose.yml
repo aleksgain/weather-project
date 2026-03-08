@@ -20,6 +20,9 @@ services:
       - WEATHERAPI_ENABLED=false
       - WEATHERAPI_KEY=${WEATHERAPI_KEY:-}
       
+      # NWS - National Weather Service (free, no API key, US only)
+      - NWS_ENABLED=true
+
       # Mock data (for testing without API calls)
       - MOCK_ENABLED=false
       

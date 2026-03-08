@@ -16,8 +16,8 @@ export default function UnitToggle({ unit, onToggle }) {
         minWidth: '72px',
         justifyContent: 'center',
       }}
-      aria-label={`Switch to ${unit === 'metric' ? 'Fahrenheit' : 'Celsius'}. Currently showing ${unit === 'metric' ? 'Celsius' : 'Fahrenheit'}`}
-      title={`Switch to ${unit === 'metric' ? '°F' : '°C'}`}
+      aria-label={`Switch to ${unit === 'metric' ? 'Fahrenheit' : 'Celsius'}. Currently showing ${unit === 'metric' ? 'Celsius, hPa' : 'Fahrenheit, inHg'}`}
+      title={`Switch to ${unit === 'metric' ? '°F / inHg' : '°C / hPa'}`}
     >
       <span
         style={{
@@ -39,6 +39,16 @@ export default function UnitToggle({ unit, onToggle }) {
         aria-hidden="true"
       >
         °F
+      </span>
+      <span
+        style={{
+          fontSize: '0.7rem',
+          color: 'var(--text-muted)',
+          marginLeft: '2px',
+        }}
+        aria-hidden="true"
+      >
+        {unit === 'metric' ? 'hPa' : 'inHg'}
       </span>
     </button>
   );

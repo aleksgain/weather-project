@@ -58,6 +58,13 @@ export const weatherSources = {
     key: getEnvVar('WEATHERAPI_KEY', ''),
     baseUrl: 'https://api.weatherapi.com/v1',
   },
+  nws: {
+    id: 'nws',
+    name: 'National Weather Service',
+    enabled: parseBool(getEnvVar('NWS_ENABLED'), false),
+    needsKey: false,
+    baseUrl: 'https://api.weather.gov',
+  },
   mock: {
     id: 'mock',
     name: 'Mock Data',

@@ -26,7 +26,7 @@ export default function LocationMap({ lat, lon, locationName }) {
   const longitude = typeof lon === 'number' && !Number.isNaN(lon) ? lon : -74.006;
   const center = useMemo(() => [latitude, longitude], [latitude, longitude]);
   const displayName = locationName || `${latitude.toFixed(2)}°, ${longitude.toFixed(2)}°`;
-  const icon = useMemo(createCustomIcon, []);
+  const icon = useMemo(() => createCustomIcon(), []);
 
   return (
     <article

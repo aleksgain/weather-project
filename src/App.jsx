@@ -1,134 +1,84 @@
 import { useEffect, useState, useCallback, lazy, Suspense } from 'react';
-import { RefreshCw, CloudOff } from 'lucide-react';
-import { fetchWeatherData, clearCache } from './services/weather';
-import { defaultLocation } from './config/weather-sources';
-
-// Nominatim usage policy: max 1 request per second
-let lastNominatimCall = 0;
-async function nominatimRateLimit() {
-  const elapsed = Date.now() - lastNominatimCall;
-  if (elapsed < 1100) {
-    await new Promise((r) => setTimeout(r, 1100 - elapsed));
-  }
-  lastNominatimCall = Date.now();
-}
+import { RefreshCw, CloudOff, MapPin } from 'lucide-react';
+import { useGeolocation } from './hooks/useGeolocation';
+import { useWeatherData } from './hooks/useWeatherData';
 import CurrentWeather from './components/CurrentWeather';
 import Forecast from './components/Forecast';
 import DetailedMetrics from './components/DetailedMetrics';
 import UnitToggle from './components/UnitToggle';
+import LocationSearch from './components/LocationSearch';
+import WeatherAlerts from './components/WeatherAlerts';
+import PrecipitationChart from './components/PrecipitationChart';
+import SunriseSunset from './components/SunriseSunset';
+import WindCompass from './components/WindCompass';
 
-// Lazy-load map (Leaflet needs DOM; avoids init issues in Docker)
-const LocationMap = lazy(() => import('./components/LocationMap'));
+// Lazy-load heavy map components
+const WeatherMapOverlays = lazy(() => import('./components/WeatherMapOverlays'));
+
 import './App.css';
 
+/** Map WMO weather codes to condition categories for body class */
+function getConditionCategory(weatherData) {
+  if (!weatherData?.current?.weatherCode) return 'clear';
+  const code = weatherData.current.weatherCode;
+  if (code <= 1) return 'clear';
+  if (code <= 3) return 'cloudy';
+  if (code >= 45 && code <= 48) return 'foggy';
+  if (code >= 51 && code <= 67) return 'rainy';
+  if (code >= 71 && code <= 77) return 'snowy';
+  if (code >= 80 && code <= 82) return 'rainy';
+  if (code >= 85 && code <= 86) return 'snowy';
+  if (code >= 95) return 'stormy';
+  return 'cloudy';
+}
+
 function App() {
-  const [weatherData, setWeatherData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState(null);
-  const [unit, setUnit] = useState(() => {
-    // Persist unit preference
-    const saved = localStorage.getItem('weatherUnit');
-    return saved === 'imperial' ? 'imperial' : 'metric';
-  });
-  const [lastUpdated, setLastUpdated] = useState(null);
+  const geo = useGeolocation();
+  const [overrideLocation, setOverrideLocation] = useState(null);
 
-  const loadData = useCallback(async (forceRefresh = false) => {
-    try {
-      if (forceRefresh) {
-        setRefreshing(true);
-        clearCache();
-      } else {
-        setLoading(true);
-      }
-      setError(null);
+  const activeLocation = overrideLocation || {
+    latitude: geo.latitude,
+    longitude: geo.longitude,
+  };
+  const activeLocationName = overrideLocation
+    ? overrideLocation.name
+    : geo.locationName;
 
-      let lat = defaultLocation.lat;
-      let lon = defaultLocation.lon;
-      let locationName = defaultLocation.name;
+  const {
+    weatherData,
+    alerts,
+    loading,
+    refreshing,
+    error,
+    lastUpdated,
+    refresh,
+    unit,
+    toggleUnit,
+  } = useWeatherData(geo.loading ? null : activeLocation);
 
-      // Try to get user location
-      if ('geolocation' in navigator) {
-        try {
-          const position = await new Promise((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-              timeout: 8000,
-              maximumAge: 300000, // Cache position for 5 minutes
-              enableHighAccuracy: false,
-            });
-          });
-          lat = position.coords.latitude;
-          lon = position.coords.longitude;
+  // Set condition-responsive body class
+  useEffect(() => {
+    const category = getConditionCategory(weatherData);
+    document.body.className = `condition-${category}`;
+    return () => {
+      document.body.className = '';
+    };
+  }, [weatherData]);
 
-          // Reverse geocode to get location name (Nominatim: 1 req/sec max)
-          try {
-            await nominatimRateLimit();
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-            const geoResponse = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10`,
-              {
-                signal: controller.signal,
-                headers: {
-                  'User-Agent': 'WeatherApp/1.0',
-                },
-              }
-            );
-
-            clearTimeout(timeoutId);
-
-            if (geoResponse.ok) {
-              const geoData = await geoResponse.json();
-              locationName =
-                geoData.address?.city ||
-                geoData.address?.town ||
-                geoData.address?.village ||
-                geoData.address?.county ||
-                formatCoordinates(lat, lon);
-            }
-          } catch {
-            locationName = formatCoordinates(lat, lon);
-          }
-        } catch (geoError) {
-          console.info('Using default location:', geoError.message);
-        }
-      }
-
-      const data = await fetchWeatherData(lat, lon, forceRefresh);
-      data.locationName = locationName;
-      data.lat = lat;
-      data.lon = lon;
-      setWeatherData(data);
-      setLastUpdated(new Date());
-    } catch (err) {
-      setError(err.message || 'Failed to load weather data');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+  const handleLocationSelect = useCallback((location) => {
+    setOverrideLocation({
+      latitude: location.lat,
+      longitude: location.lon,
+      name: location.displayName || `${location.lat.toFixed(2)}, ${location.lon.toFixed(2)}`,
+    });
   }, []);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  const handleUseMyLocation = useCallback(() => {
+    setOverrideLocation(null);
+    geo.retry();
+  }, [geo]);
 
-  // Save unit preference
-  useEffect(() => {
-    localStorage.setItem('weatherUnit', unit);
-  }, [unit]);
-
-  const toggleUnit = () => {
-    setUnit((prev) => (prev === 'metric' ? 'imperial' : 'metric'));
-  };
-
-  const handleRefresh = () => {
-    if (!refreshing) {
-      loadData(true);
-    }
-  };
-
-  if (loading) {
+  if (loading || geo.loading) {
     return (
       <div className="loading-container" role="status" aria-live="polite">
         <div className="loading-spinner" aria-hidden="true" />
@@ -151,7 +101,7 @@ function App() {
         <div className="error-actions">
           <button
             className="retry-button"
-            onClick={() => loadData()}
+            onClick={refresh}
             aria-label="Retry loading weather data"
           >
             <RefreshCw size={18} aria-hidden="true" />
@@ -162,32 +112,89 @@ function App() {
     );
   }
 
+  const displayData = weatherData
+    ? {
+        ...weatherData,
+        locationName: activeLocationName,
+        lat: activeLocation.latitude,
+        lon: activeLocation.longitude,
+      }
+    : null;
+
   return (
     <div style={{ position: 'relative', width: '100%' }}>
       <header className="app-header">
-        {lastUpdated && (
-          <span className="last-updated">
-            Updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </span>
-        )}
+        <LocationSearch onLocationSelect={handleLocationSelect} />
+        <UnitToggle unit={unit} onToggle={toggleUnit} />
         <button
           className={`refresh-button ${refreshing ? 'spinning' : ''}`}
-          onClick={handleRefresh}
+          onClick={refresh}
           disabled={refreshing}
           aria-label={refreshing ? 'Refreshing...' : 'Refresh weather data'}
           title="Refresh"
         >
           <RefreshCw size={20} aria-hidden="true" />
         </button>
-        <UnitToggle unit={unit} onToggle={toggleUnit} />
+        {overrideLocation && (
+          <button
+            className="refresh-button"
+            onClick={handleUseMyLocation}
+            aria-label="Use my current location"
+            title="Use my location"
+          >
+            <MapPin size={20} aria-hidden="true" />
+          </button>
+        )}
+        {lastUpdated && (
+          <span className="last-updated">
+            Updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </span>
+        )}
       </header>
 
       <main id="main-content" tabIndex={-1}>
-        <CurrentWeather data={weatherData} unit={unit} />
-        <Forecast data={weatherData} unit={unit} />
-        <DetailedMetrics data={weatherData} unit={unit} />
-        <Suspense fallback={<div className="glass-panel location-map-card" style={{ minHeight: 280, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div className="skeleton" style={{ width: '100%', height: 260, borderRadius: 'var(--card-radius-sm)' }} /></div>}>
-          <LocationMap lat={weatherData.lat} lon={weatherData.lon} locationName={weatherData.locationName} />
+        <WeatherAlerts alerts={alerts} />
+
+        <CurrentWeather data={displayData} unit={unit} />
+
+        <Forecast data={displayData} unit={unit} />
+
+        <PrecipitationChart data={displayData} unit={unit} />
+
+        <div className="widgets-row">
+          <SunriseSunset data={displayData} />
+          <WindCompass data={displayData} unit={unit} />
+        </div>
+
+        <DetailedMetrics data={displayData} unit={unit} />
+
+        <Suspense
+          fallback={
+            <div
+              className="glass-panel"
+              style={{
+                minHeight: 280,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <div
+                className="skeleton"
+                style={{
+                  width: '100%',
+                  height: 260,
+                  borderRadius: 'var(--card-radius-sm)',
+                }}
+              />
+            </div>
+          }
+        >
+          <WeatherMapOverlays
+            lat={displayData?.lat}
+            lon={displayData?.lon}
+            locationName={displayData?.locationName}
+          />
         </Suspense>
 
         <footer className="app-footer">
@@ -197,12 +204,6 @@ function App() {
       </main>
     </div>
   );
-}
-
-function formatCoordinates(lat, lon) {
-  const latDir = lat >= 0 ? 'N' : 'S';
-  const lonDir = lon >= 0 ? 'E' : 'W';
-  return `${Math.abs(lat).toFixed(2)}°${latDir}, ${Math.abs(lon).toFixed(2)}°${lonDir}`;
 }
 
 export default App;
