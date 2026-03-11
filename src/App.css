@@ -237,8 +237,76 @@
   color: var(--text-primary);
 }
 
+.location-search-item:active {
+  background: rgba(88, 209, 235, 0.1);
+}
+
+.location-search-item.active {
+  background: var(--glass-bg-hover);
+  color: var(--text-primary);
+}
+
 .location-search-item + .location-search-item {
   border-top: 1px solid var(--glass-border);
+}
+
+.location-search-loading,
+.location-search-error {
+  padding: var(--spacing-md);
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+}
+
+.location-search-error {
+  color: var(--accent-red);
+}
+
+.location-search-reset {
+  position: absolute;
+  right: var(--spacing-sm);
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.location-search-reset:hover {
+  background: var(--glass-bg-hover);
+  color: var(--text-primary);
+}
+
+.location-search-reset svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Location search responsive */
+@media (min-width: 768px) {
+  .location-search {
+    max-width: 360px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .location-search {
+    max-width: 400px;
+  }
 }
 
 /* Weather alerts */
