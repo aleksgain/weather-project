@@ -73,8 +73,6 @@ function App() {
     }
   }, [manualLocation]);
 
-  const isManualLocation = manualLocation !== null;
-
   // When manualLocation is set, use it directly (skip geolocation)
   const effectiveOverride = manualLocation
     ? { latitude: manualLocation.lat, longitude: manualLocation.lon, name: manualLocation.name }
@@ -108,14 +106,6 @@ function App() {
       document.body.className = '';
     };
   }, [weatherData]);
-
-  const handleLocationSelect = useCallback((location) => {
-    setOverrideLocation({
-      latitude: location.lat,
-      longitude: location.lon,
-      name: location.displayName || `${location.lat.toFixed(2)}, ${location.lon.toFixed(2)}`,
-    });
-  }, []);
 
   const handleUseMyLocation = useCallback(() => {
     setOverrideLocation(null);
