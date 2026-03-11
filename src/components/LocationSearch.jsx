@@ -1,36 +1,109 @@
-import { useState, useRef, useId } from 'react';
-import { Search, MapPin, Loader2 } from 'lucide-react';
-import { useLocationSearch } from '../hooks/useLocationSearch';
+import { useState, useRef, useId, useEffect, useCallback } from 'react';
+import { Search, MapPin, Loader2, X } from 'lucide-react';
+import { searchLocations } from '../utils/nominatim';
 
-export default function LocationSearch({ onLocationSelect }) {
-  const { query, setQuery, results, loading, error, selectLocation, clearResults } =
-    useLocationSearch();
+export default function LocationSearch({ currentLocation, isManual, onLocationSelect, onReset }) {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const inputRef = useRef(null);
+  const containerRef = useRef(null);
+  const debounceRef = useRef(null);
+  const controllerRef = useRef(null);
   const listboxId = useId();
+
+  // Abort in-flight request and clear debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (controllerRef.current) controllerRef.current.abort();
+    };
+  }, []);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false);
+        setActiveIndex(-1);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const performSearch = useCallback(async (searchQuery) => {
+    if (!searchQuery || searchQuery.trim().length < 3) {
+      setResults([]);
+      setLoading(false);
+      return;
+    }
+
+    if (controllerRef.current) controllerRef.current.abort();
+    const controller = new AbortController();
+    controllerRef.current = controller;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const data = await searchLocations(searchQuery, { signal: controller.signal });
+      if (!controller.signal.aborted) {
+        setResults(data);
+        setLoading(false);
+        if (data.length === 0) {
+          setError('No locations found');
+        }
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError' && !controller.signal.aborted) {
+        setError(err.message || 'Search failed');
+        setLoading(false);
+      }
+    }
+  }, []);
 
   const handleInputChange = (e) => {
     const value = e.target.value;
     setQuery(value);
     setIsOpen(true);
     setActiveIndex(-1);
+    setError(null);
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (value.trim().length < 3) {
+      setResults([]);
+      setLoading(false);
+      return;
+    }
+    debounceRef.current = setTimeout(() => {
+      performSearch(value);
+    }, 300);
   };
 
   const handleSelect = (location) => {
-    const selected = selectLocation(location);
+    const name = location.displayName
+      ? location.displayName.split(',')[0]
+      : `${location.lat.toFixed(2)}, ${location.lon.toFixed(2)}`;
+    setQuery('');
+    setResults([]);
     setIsOpen(false);
     setActiveIndex(-1);
     if (onLocationSelect) {
-      onLocationSelect(selected);
+      onLocationSelect({ lat: location.lat, lon: location.lon, name });
     }
   };
 
   const handleKeyDown = (e) => {
     if (!isOpen || results.length === 0) {
       if (e.key === 'Escape') {
-        clearResults();
+        setQuery('');
+        setResults([]);
         setIsOpen(false);
+        setError(null);
       }
       return;
     }
@@ -58,25 +131,12 @@ export default function LocationSearch({ onLocationSelect }) {
     }
   };
 
-  const handleUseMyLocation = () => {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const location = {
-          lat: position.coords.latitude,
-          lon: position.coords.longitude,
-          displayName: 'My Location',
-        };
-        clearResults();
-        setIsOpen(false);
-        if (onLocationSelect) {
-          onLocationSelect(location);
-        }
-      },
-      () => {
-        // Geolocation error - silently fail
-      }
-    );
+  const handleReset = () => {
+    setQuery('');
+    setResults([]);
+    setIsOpen(false);
+    setError(null);
+    if (onReset) onReset();
   };
 
   const showDropdown = isOpen && (results.length > 0 || loading || error);
@@ -84,7 +144,7 @@ export default function LocationSearch({ onLocationSelect }) {
     activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined;
 
   return (
-    <div style={{ position: 'relative', width: '100%' }}>
+    <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
       <div
         className="glass-panel"
         style={{
@@ -115,11 +175,7 @@ export default function LocationSearch({ onLocationSelect }) {
           onFocus={() => {
             if (results.length > 0) setIsOpen(true);
           }}
-          onBlur={() => {
-            // Delay to allow click on dropdown items
-            setTimeout(() => setIsOpen(false), 200);
-          }}
-          placeholder="Search location..."
+          placeholder={currentLocation || 'Search location...'}
           role="combobox"
           aria-expanded={showDropdown}
           aria-controls={listboxId}
@@ -136,26 +192,28 @@ export default function LocationSearch({ onLocationSelect }) {
             fontFamily: 'inherit',
           }}
         />
-        <button
-          onClick={handleUseMyLocation}
-          aria-label="Use my current location"
-          title="Use my location"
-          style={{
-            background: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-            padding: 'var(--spacing-xs)',
-            borderRadius: 'var(--card-radius-sm)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--text-muted)',
-            transition: 'color 0.2s ease',
-            flexShrink: 0,
-          }}
-        >
-          <MapPin size={18} />
-        </button>
+        {isManual && (
+          <button
+            onClick={handleReset}
+            aria-label="Use my current location"
+            title="Use my location"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 'var(--spacing-xs)',
+              borderRadius: 'var(--card-radius-sm)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--text-muted)',
+              transition: 'color 0.2s ease',
+              flexShrink: 0,
+            }}
+          >
+            <MapPin size={18} />
+          </button>
+        )}
       </div>
 
       {showDropdown && (
@@ -200,7 +258,7 @@ export default function LocationSearch({ onLocationSelect }) {
               Searching...
             </li>
           )}
-          {error && (
+          {error && !loading && (
             <li
               style={{
                 padding: 'var(--spacing-sm) var(--spacing-md)',
