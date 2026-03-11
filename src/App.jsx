@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, lazy, Suspense } from 'react';
 import { RefreshCw, CloudOff, MapPin } from 'lucide-react';
 import { useGeolocation } from './hooks/useGeolocation';
 import { useWeatherData } from './hooks/useWeatherData';
+import { clearCache } from './services/weather';
 import CurrentWeather from './components/CurrentWeather';
 import Forecast from './components/Forecast';
 import DetailedMetrics from './components/DetailedMetrics';
@@ -32,16 +33,59 @@ function getConditionCategory(weatherData) {
   return 'cloudy';
 }
 
+const STORAGE_KEY = 'weatherLocation';
+
+/** Read manualLocation from localStorage with error handling */
+function readStoredLocation() {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored) return null;
+    const parsed = JSON.parse(stored);
+    if (
+      typeof parsed?.lat === 'number' &&
+      typeof parsed?.lon === 'number' &&
+      typeof parsed?.name === 'string'
+    ) {
+      return parsed;
+    }
+    return null;
+  } catch {
+    localStorage.removeItem(STORAGE_KEY);
+    return null;
+  }
+}
+
 function App() {
   const geo = useGeolocation();
   const [overrideLocation, setOverrideLocation] = useState(null);
+  const [manualLocation, setManualLocation] = useState(readStoredLocation);
 
-  const activeLocation = overrideLocation || {
+  // Persist manualLocation to localStorage
+  useEffect(() => {
+    if (manualLocation) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(manualLocation));
+      } catch {
+        // Storage full or unavailable — ignore
+      }
+    } else {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  }, [manualLocation]);
+
+  const isManualLocation = manualLocation !== null;
+
+  // When manualLocation is set, use it directly (skip geolocation)
+  const effectiveOverride = manualLocation
+    ? { latitude: manualLocation.lat, longitude: manualLocation.lon, name: manualLocation.name }
+    : overrideLocation;
+
+  const activeLocation = effectiveOverride || {
     latitude: geo.latitude,
     longitude: geo.longitude,
   };
-  const activeLocationName = overrideLocation
-    ? overrideLocation.name
+  const activeLocationName = effectiveOverride
+    ? effectiveOverride.name
     : geo.locationName;
 
   const {
@@ -54,7 +98,7 @@ function App() {
     refresh,
     unit,
     toggleUnit,
-  } = useWeatherData(geo.loading ? null : activeLocation);
+  } = useWeatherData(manualLocation || !geo.loading ? activeLocation : null);
 
   // Set condition-responsive body class
   useEffect(() => {
@@ -78,7 +122,23 @@ function App() {
     geo.retry();
   }, [geo]);
 
-  if (loading || geo.loading) {
+  /** Set a persistent manual location, clear cache, and reload weather */
+  const handleLocationChange = useCallback((location) => {
+    setManualLocation({ lat: location.lat, lon: location.lon, name: location.name });
+    setOverrideLocation(null);
+    clearCache();
+    // refresh will be triggered by activeLocation change via useWeatherData
+  }, []);
+
+  /** Clear manual location, revert to geolocation detection */
+  const handleResetLocation = useCallback(() => {
+    setManualLocation(null);
+    setOverrideLocation(null);
+    clearCache();
+    geo.retry();
+  }, [geo]);
+
+  if (loading || (!manualLocation && geo.loading)) {
     return (
       <div className="loading-container" role="status" aria-live="polite">
         <div className="loading-spinner" aria-hidden="true" />
