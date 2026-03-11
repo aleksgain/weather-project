@@ -1,5 +1,6 @@
 import { getWeatherIcon, getIconColor } from '../utils/iconMap';
 import { formatTemp } from '../utils/unitConversion';
+import { MapPin } from 'lucide-react';
 
 const conditionAnimationStyles = `
 @keyframes rainDrop {
@@ -133,7 +134,7 @@ function renderWeatherIcon(condition, iconColor) {
   );
 }
 
-export default function CurrentWeather({ data, unit }) {
+export default function CurrentWeather({ data, unit, isManualLocation }) {
   if (!data?.current) return null;
 
   const { temp, condition, high, low, feelsLike } = data.current;
@@ -188,6 +189,24 @@ export default function CurrentWeather({ data, unit }) {
         }}
       >
         {data.locationName || 'Current Location'}
+        {isManualLocation && (
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              fontSize: '0.75rem',
+              color: 'var(--text-muted)',
+              fontWeight: 400,
+              marginLeft: 'var(--spacing-sm)',
+              verticalAlign: 'middle',
+            }}
+            aria-label="Manual location"
+          >
+            <MapPin size={12} aria-hidden="true" />
+            Manual location
+          </span>
+        )}
       </h2>
 
       <div

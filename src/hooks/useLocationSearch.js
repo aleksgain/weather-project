@@ -1,14 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-
-// Nominatim usage policy: max 1 request per second
-let lastNominatimCall = 0;
-async function nominatimRateLimit() {
-  const elapsed = Date.now() - lastNominatimCall;
-  if (elapsed < 1100) {
-    await new Promise((r) => setTimeout(r, 1100 - elapsed));
-  }
-  lastNominatimCall = Date.now();
-}
+import { nominatimRateLimit } from '../utils/nominatim';
 
 export function useLocationSearch() {
   const [query, setQueryState] = useState('');
