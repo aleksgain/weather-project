@@ -184,7 +184,12 @@ function App() {
   return (
     <div style={{ position: 'relative', width: '100%' }}>
       <header className="app-header">
-        <LocationSearch onLocationSelect={handleLocationSelect} />
+        <LocationSearch
+          currentLocation={weatherData?.locationName}
+          isManual={!!manualLocation}
+          onLocationSelect={handleLocationChange}
+          onReset={handleResetLocation}
+        />
         <UnitToggle unit={unit} onToggle={toggleUnit} />
         <button
           className={`refresh-button ${refreshing ? 'spinning' : ''}`}
@@ -215,7 +220,7 @@ function App() {
       <main id="main-content" tabIndex={-1}>
         <WeatherAlerts alerts={alerts} />
 
-        <CurrentWeather data={displayData} unit={unit} />
+        <CurrentWeather data={displayData} unit={unit} isManualLocation={!!manualLocation} />
 
         <Forecast data={displayData} unit={unit} />
 
