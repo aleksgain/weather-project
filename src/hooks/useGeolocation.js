@@ -1,15 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { defaultLocation } from '../config/weather-sources';
-
-// Nominatim usage policy: max 1 request per second
-let lastNominatimCall = 0;
-async function nominatimRateLimit() {
-  const elapsed = Date.now() - lastNominatimCall;
-  if (elapsed < 1100) {
-    await new Promise((r) => setTimeout(r, 1100 - elapsed));
-  }
-  lastNominatimCall = Date.now();
-}
+import { nominatimRateLimit } from '../utils/nominatim';
 
 function formatCoordinates(lat, lon) {
   return `${lat.toFixed(2)}, ${lon.toFixed(2)}`;
