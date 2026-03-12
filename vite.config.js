@@ -5,5 +5,5 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   // Expose these env vars to the client (no VITE_ prefix needed)
-  envPrefix: ['VITE_', 'OPENMETEO', 'OPENWEATHER', 'WEATHERAPI', 'NWS', 'MOCK', 'DEFAULT'],
+  envPrefix: ['VITE_', 'OPENMETEO', 'OPENWEATHER', 'WEATHERAPI', 'NWS', 'DEFAULT', 'SHOW'],
 })

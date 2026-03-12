@@ -18,6 +18,9 @@ export function useWeatherData(location) {
     return saved === 'imperial' ? 'imperial' : 'metric';
   });
 
+  const latitude = location?.latitude ?? null;
+  const longitude = location?.longitude ?? null;
+
   const toggleUnit = useCallback(() => {
     setUnit((prev) => (prev === 'metric' ? 'imperial' : 'metric'));
   }, []);
@@ -28,7 +31,7 @@ export function useWeatherData(location) {
   }, [unit]);
 
   const loadData = useCallback(async (forceRefresh = false) => {
-    if (!location || location.latitude == null || location.longitude == null) {
+    if (latitude == null || longitude == null) {
       setLoading(false);
       return;
     }
@@ -41,8 +44,6 @@ export function useWeatherData(location) {
         setLoading(true);
       }
       setError(null);
-
-      const { latitude, longitude } = location;
 
       // Fetch weather data and alerts in parallel
       const [data, alertsData] = await Promise.all([
@@ -59,7 +60,7 @@ export function useWeatherData(location) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [location]);
+  }, [latitude, longitude]);
 
   useEffect(() => {
     loadData();

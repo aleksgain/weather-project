@@ -3,11 +3,19 @@ import { CloudRain } from 'lucide-react';
 import { mmToInches } from '../utils/unitConversion';
 
 export default function PrecipitationChart({ data, unit }) {
-  const [activeBar, setActiveBar] = useState(null);
+  const [activeChanceBar, setActiveChanceBar] = useState(null);
+  const [activeAmountBar, setActiveAmountBar] = useState(null);
 
   if (!data?.hourly) return null;
 
-  const hours = data.hourly.slice(0, 24);
+  const now = Date.now();
+  const sortedHours = [...data.hourly].sort((a, b) => new Date(a.time) - new Date(b.time));
+  const futureHours = sortedHours.filter((h) => {
+    const ts = new Date(h.time).getTime();
+    return !Number.isNaN(ts) && ts >= now;
+  });
+  const hours = (futureHours.length > 0 ? futureHours : sortedHours).slice(0, 24);
+  const barCount = Math.max(1, hours.length);
   const precipUnit = unit === 'imperial' ? 'in' : 'mm';
 
   const hasAnyPrecip = hours.some(
@@ -19,18 +27,25 @@ export default function PrecipitationChart({ data, unit }) {
     return Math.round(val * 100) / 100;
   };
 
+  const amountValues = hours.map((h) => formatAmount(h.precipAmount ?? 0));
+  const maxAmount = Math.max(0.1, ...amountValues);
+
   // SVG dimensions
-  const padding = { top: 20, right: 10, bottom: 30, left: 10 };
+  const padding = { top: 20, right: 10, bottom: 26, left: 10 };
+  const yAxisWidth = 30;
+  const chartStartX = padding.left + yAxisWidth;
   const viewW = 480;
-  const viewH = 200;
-  const chartW = viewW - padding.left - padding.right;
+  const viewH = 140;
+  const chartW = viewW - chartStartX - padding.right;
   const chartH = viewH - padding.top - padding.bottom;
-  const barWidth = chartW / 24;
+  const barWidth = chartW / barCount;
 
   const gridlines = [25, 50, 75];
-
-  const handleInteraction = (index) => setActiveBar(index);
-  const clearInteraction = () => setActiveBar(null);
+  const labelStep = Math.max(1, Math.ceil(barCount / 12));
+  const clearInteraction = () => {
+    setActiveChanceBar(null);
+    setActiveAmountBar(null);
+  };
 
   return (
     <section
@@ -52,7 +67,7 @@ export default function PrecipitationChart({ data, unit }) {
         }}
       >
         <CloudRain size={16} style={{ color: 'var(--accent-blue)' }} aria-hidden="true" />
-        <span id="precip-heading">Precipitation</span>
+        <span id="precip-heading">Precipitation Forecast</span>
       </div>
 
       {!hasAnyPrecip ? (
@@ -67,130 +82,180 @@ export default function PrecipitationChart({ data, unit }) {
           No precipitation expected
         </div>
       ) : (
-        <div style={{ position: 'relative' }}>
-          <svg
-            viewBox={`0 0 ${viewW} ${viewH}`}
-            style={{ width: '100%', height: 'auto', display: 'block' }}
-            role="img"
-            aria-label="Hourly precipitation chart for next 24 hours"
-            onMouseLeave={clearInteraction}
-            onTouchEnd={clearInteraction}
-          >
-            <defs>
-              <linearGradient id="precip-gradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--accent-blue)" />
-                <stop offset="100%" stopColor="var(--accent-cyan)" />
-              </linearGradient>
-            </defs>
+        <div style={{ position: 'relative', display: 'grid', gap: 'var(--spacing-sm)' }}>
+          <div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>
+              Chance (%)
+            </div>
+            <svg
+              viewBox={`0 0 ${viewW} ${viewH}`}
+              style={{ width: '100%', height: 'auto', display: 'block' }}
+              role="img"
+              aria-label={`Hourly precipitation chance from now for next ${hours.length} hours`}
+              onMouseLeave={() => setActiveChanceBar(null)}
+              onTouchEnd={() => setActiveChanceBar(null)}
+            >
+              <defs>
+                <linearGradient id="precip-prob-gradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--accent-blue)" />
+                  <stop offset="100%" stopColor="var(--accent-cyan)" />
+                </linearGradient>
+              </defs>
 
-            {/* Horizontal gridlines */}
-            {gridlines.map((pct) => {
-              const y = padding.top + chartH - (pct / 100) * chartH;
-              return (
-                <g key={pct}>
-                  <line
-                    x1={padding.left}
-                    x2={viewW - padding.right}
-                    y1={y}
-                    y2={y}
-                    stroke="var(--glass-border)"
-                    strokeDasharray="3,3"
-                  />
-                  <text
-                    x={padding.left + 2}
-                    y={y - 3}
-                    fill="var(--text-muted)"
-                    fontSize="8"
-                    fontFamily="inherit"
-                  >
-                    {pct}%
-                  </text>
-                </g>
-              );
-            })}
+              {gridlines.map((pct) => {
+                const y = padding.top + chartH - (pct / 100) * chartH;
+                return (
+                  <g key={pct}>
+                    <line
+                      x1={chartStartX}
+                      x2={viewW - padding.right}
+                      y1={y}
+                      y2={y}
+                      stroke="var(--glass-border)"
+                      strokeDasharray="3,3"
+                    />
+                    <text
+                      x={chartStartX - 4}
+                      y={y - 3}
+                      fill="var(--text-muted)"
+                      fontSize="8"
+                      fontFamily="inherit"
+                      textAnchor="end"
+                    >
+                      {pct}%
+                    </text>
+                  </g>
+                );
+              })}
 
-            {/* Bars */}
-            {hours.map((hour, i) => {
-              const prob = Math.min(100, Math.max(0, hour.precipProbability ?? 0));
-              const amount = hour.precipAmount ?? 0;
-              const barH = (prob / 100) * chartH;
-              const x = padding.left + i * barWidth;
-              const y = padding.top + chartH - barH;
-              const opacity = amount > 0 ? Math.min(1, 0.3 + (amount / 10) * 0.7) : 0.3;
+              {hours.map((hour, i) => {
+                const prob = Math.min(100, Math.max(0, hour.precipProbability ?? 0));
+                const barH = (prob / 100) * chartH;
+                const x = chartStartX + i * barWidth;
+                const y = padding.top + chartH - barH;
 
-              return (
-                <rect
-                  key={i}
-                  x={x + 1}
-                  y={barH > 0 ? y : padding.top + chartH}
-                  width={Math.max(0, barWidth - 2)}
-                  height={Math.max(0, barH)}
-                  fill="url(#precip-gradient)"
-                  opacity={activeBar === i ? 1 : opacity}
-                  rx={2}
-                  style={{ cursor: 'pointer', transition: 'opacity 0.15s ease' }}
-                  onMouseEnter={() => handleInteraction(i)}
-                  onTouchStart={() => handleInteraction(i)}
-                />
-              );
-            })}
-
-            {/* Time labels every 3 hours */}
-            {hours.map((hour, i) => {
-              if (i % 3 !== 0) return null;
-              const hourNum = new Date(hour.time).getHours();
-              const x = padding.left + i * barWidth + barWidth / 2;
-              return (
-                <text
-                  key={i}
-                  x={x}
-                  y={viewH - 5}
-                  fill="var(--text-muted)"
-                  fontSize="9"
-                  fontFamily="inherit"
-                  textAnchor="middle"
-                >
-                  {hourNum}:00
-                </text>
-              );
-            })}
-
-            {/* Tooltip */}
-            {activeBar !== null && (() => {
-              const hour = hours[activeBar];
-              const prob = hour.precipProbability ?? 0;
-              const amount = hour.precipAmount ?? 0;
-              const x = padding.left + activeBar * barWidth + barWidth / 2;
-              const barH = (Math.min(100, Math.max(0, prob)) / 100) * chartH;
-              const y = padding.top + chartH - barH - 8;
-              const tooltipX = Math.min(viewW - 70, Math.max(70, x));
-
-              return (
-                <g>
+                return (
                   <rect
-                    x={tooltipX - 55}
-                    y={y - 30}
-                    width={110}
-                    height={28}
-                    rx={6}
-                    fill="var(--glass-bg-hover)"
-                    stroke="var(--glass-border-hover)"
-                    strokeWidth={1}
+                    key={i}
+                    x={x + 1}
+                    y={barH > 0 ? y : padding.top + chartH}
+                    width={Math.max(0, barWidth - 2)}
+                    height={Math.max(0, barH)}
+                    fill="url(#precip-prob-gradient)"
+                    opacity={activeChanceBar === i ? 1 : 0.65}
+                    rx={2}
+                    style={{ cursor: 'pointer', transition: 'opacity 0.15s ease' }}
+                    onMouseEnter={() => setActiveChanceBar(i)}
+                    onTouchStart={() => setActiveChanceBar(i)}
                   />
+                );
+              })}
+            </svg>
+          </div>
+
+          <div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>
+              Amount ({precipUnit})
+            </div>
+            <svg
+              viewBox={`0 0 ${viewW} ${viewH}`}
+              style={{ width: '100%', height: 'auto', display: 'block' }}
+              role="img"
+              aria-label={`Hourly precipitation amount from now for next ${hours.length} hours`}
+              onMouseLeave={() => setActiveAmountBar(null)}
+              onTouchEnd={() => setActiveAmountBar(null)}
+            >
+              <defs>
+                <linearGradient id="precip-amount-gradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--accent-cyan)" />
+                  <stop offset="100%" stopColor="var(--accent-blue)" />
+                </linearGradient>
+              </defs>
+
+              {gridlines.map((pct) => {
+                const y = padding.top + chartH - (pct / 100) * chartH;
+                const amountTick = Math.round((maxAmount * (pct / 100)) * 100) / 100;
+                return (
+                  <g key={pct}>
+                    <line
+                      x1={chartStartX}
+                      x2={viewW - padding.right}
+                      y1={y}
+                      y2={y}
+                      stroke="var(--glass-border)"
+                      strokeDasharray="3,3"
+                    />
+                    <text
+                      x={chartStartX - 4}
+                      y={y - 3}
+                      fill="var(--text-muted)"
+                      fontSize="8"
+                      fontFamily="inherit"
+                      textAnchor="end"
+                    >
+                      {amountTick}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {hours.map((hour, i) => {
+                const amount = formatAmount(hour.precipAmount ?? 0);
+                const barH = (amount / maxAmount) * chartH;
+                const x = chartStartX + i * barWidth;
+                const y = padding.top + chartH - barH;
+
+                return (
+                  <rect
+                    key={i}
+                    x={x + 1}
+                    y={barH > 0 ? y : padding.top + chartH}
+                    width={Math.max(0, barWidth - 2)}
+                    height={Math.max(0, barH)}
+                    fill="url(#precip-amount-gradient)"
+                    opacity={activeAmountBar === i ? 1 : 0.65}
+                    rx={2}
+                    style={{ cursor: 'pointer', transition: 'opacity 0.15s ease' }}
+                    onMouseEnter={() => setActiveAmountBar(i)}
+                    onTouchStart={() => setActiveAmountBar(i)}
+                  />
+                );
+              })}
+
+              {hours.map((hour, i) => {
+                if (i % labelStep !== 0) return null;
+                const hourNum = new Date(hour.time).getHours();
+                const x = chartStartX + i * barWidth + barWidth / 2;
+                return (
                   <text
-                    x={tooltipX}
-                    y={y - 12}
-                    fill="var(--text-primary)"
-                    fontSize="10"
+                    key={i}
+                    x={x}
+                    y={viewH - 5}
+                    fill="var(--text-muted)"
+                    fontSize="9"
                     fontFamily="inherit"
                     textAnchor="middle"
                   >
-                    {prob}% &middot; {formatAmount(amount)} {precipUnit}
+                    {hourNum}:00
                   </text>
-                </g>
-              );
-            })()}
-          </svg>
+                );
+              })}
+            </svg>
+          </div>
+
+          <div
+            style={{
+              fontSize: '0.8rem',
+              color: 'var(--text-secondary)',
+              textAlign: 'center',
+              minHeight: '1.2em',
+            }}
+            onMouseLeave={clearInteraction}
+          >
+            {activeChanceBar != null && `${Math.round(hours[activeChanceBar].precipProbability ?? 0)}% chance`}
+            {activeChanceBar != null && activeAmountBar != null && ' · '}
+            {activeAmountBar != null && `${formatAmount(hours[activeAmountBar].precipAmount ?? 0)} ${precipUnit} expected`}
+          </div>
         </div>
       )}
     </section>

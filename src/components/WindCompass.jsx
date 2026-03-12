@@ -16,19 +16,22 @@ const DEG_TO_RAD = Math.PI / 180;
 export default function WindCompass({ data, unit }) {
   if (!data?.current) return null;
 
-  const { windSpeed, windDirection, windGust } = data.current;
+  const { windSpeed, windDirection, windDeg, windGust, windGusts } = data.current;
   const size = 200;
   const cx = size / 2;
   const cy = size / 2;
   const outerR = 90;
   const labelR = 70;
-  const dir = windDirection ?? 0;
+  const dir = typeof windDirection === 'number'
+    ? windDirection
+    : (typeof windDeg === 'number' ? windDeg : 0);
+  const resolvedWindGust = windGust ?? windGusts ?? null;
 
   return (
     <article
       className="glass-panel"
       style={{ padding: 'var(--spacing-lg)' }}
-      aria-label={`Wind from ${dir} degrees at ${formatSpeed(windSpeed ?? 0, unit)} ${getUnitLabel('speed', unit)}`}
+      aria-label={`Wind from ${Math.round(dir)} degrees at ${formatSpeed(windSpeed ?? 0, unit)} ${getUnitLabel('speed', unit)}`}
     >
       <div
         style={{
@@ -148,7 +151,7 @@ export default function WindCompass({ data, unit }) {
         </text>
 
         {/* Gust speed */}
-        {windGust != null && (
+        {resolvedWindGust != null && (
           <text
             x={cx}
             y={cy + 30}
@@ -157,7 +160,7 @@ export default function WindCompass({ data, unit }) {
             fill="var(--text-muted)"
             fontSize="10"
           >
-            Gust {formatSpeed(windGust, unit)}
+            Gust {formatSpeed(resolvedWindGust, unit)}
           </text>
         )}
       </svg>

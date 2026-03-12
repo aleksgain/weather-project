@@ -1,7 +1,7 @@
 import { Sun, Wind, Droplets, Thermometer, Gauge, Eye, Droplet, Compass, Sunrise, Sunset, CloudRain, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { formatTemp, formatSpeed, formatDistance, getUnitLabel } from '../utils/unitConversion';
 
-function MetricCard({ title, value, unitLabel, description, color }) {
+function MetricCard({ title, value, unitLabel, description, color, Icon }) {
   return (
     <article
       className="glass-panel"
@@ -104,6 +104,9 @@ function getPressureDescription(hPa) {
 }
 
 function getWindDirection(degrees) {
+  if (typeof degrees === 'string') {
+    return degrees.toUpperCase();
+  }
   if (typeof degrees !== 'number' || Number.isNaN(degrees)) return 'N/A';
   const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
   const index = Math.round(((degrees % 360) + 360) % 360 / 22.5) % 16;
@@ -125,23 +128,25 @@ function getPressureTrendDescription(pressure) {
 }
 
 function getAQIDescription(aqi) {
-  if (aqi <= 1) return 'Good';
-  if (aqi <= 2) return 'Moderate';
-  if (aqi <= 3) return 'Unhealthy (Sensitive)';
-  if (aqi <= 4) return 'Unhealthy';
-  return 'Very Unhealthy';
+  if (aqi <= 50) return 'Good';
+  if (aqi <= 100) return 'Moderate';
+  if (aqi <= 150) return 'Unhealthy (Sensitive)';
+  if (aqi <= 200) return 'Unhealthy';
+  if (aqi <= 300) return 'Very Unhealthy';
+  return 'Hazardous';
 }
 
 function getAQIColor(aqi) {
-  if (aqi <= 1) return 'var(--accent-green)';
-  if (aqi <= 2) return 'var(--accent-yellow)';
-  if (aqi <= 3) return 'var(--accent-orange)';
+  if (aqi <= 50) return 'var(--accent-green)';
+  if (aqi <= 100) return 'var(--accent-yellow)';
+  if (aqi <= 150) return 'var(--accent-orange)';
   return 'var(--accent-red)';
 }
 
 function formatTime(timestamp) {
-  if (!timestamp) return '--:--';
-  const date = new Date(timestamp * 1000);
+  if (timestamp == null) return '--:--';
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return '--:--';
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
@@ -161,8 +166,26 @@ export default function DetailedMetrics({ data, unit }) {
 
   const {
     uvIndex, humidity, windSpeed, feelsLike, pressure, visibility, temp,
-    windDeg, windGust, sunrise, sunset, precipitation, airQuality,
+    windDirection, windDeg, windGust, windGusts, sunrise, sunset, precipitation, airQuality,
   } = data.current;
+
+  const resolvedWindDirection = windDirection ?? windDeg ?? null;
+  const resolvedWindGust = windGust ?? windGusts ?? null;
+  const sunriseTime = sunrise ? new Date(sunrise) : null;
+  const sunsetTime = sunset ? new Date(sunset) : null;
+  const now = new Date();
+
+  let sunCardTitle = 'Sunrise';
+  let sunCardValue = sunrise;
+  let sunCardDescription = sunset ? `Sunset ${formatTime(sunset)}` : '';
+
+  if (sunriseTime && sunsetTime && !Number.isNaN(sunriseTime.getTime()) && !Number.isNaN(sunsetTime.getTime())) {
+    if (now >= sunriseTime && now < sunsetTime) {
+      sunCardTitle = 'Sunset';
+      sunCardValue = sunset;
+      sunCardDescription = `Sunrise ${formatTime(sunrise)}`;
+    }
+  }
 
   // Calculate dew point approximation (Magnus formula simplified), clamp inputs to avoid NaN
   const safeTemp = typeof temp === 'number' && !Number.isNaN(temp) ? temp : 20;
@@ -246,18 +269,18 @@ export default function DetailedMetrics({ data, unit }) {
       />
       <MetricCard
         title="Wind Direction"
-        value={getWindDirection(windDeg)}
+        value={getWindDirection(resolvedWindDirection)}
         unitLabel=""
-        description={windGust ? `Gusts ${formatSpeed(windGust, unit)} ${getUnitLabel('speed', unit)}` : 'No gusts'}
+        description={resolvedWindGust ? `Gusts ${formatSpeed(resolvedWindGust, unit)} ${getUnitLabel('speed', unit)}` : 'No gusts'}
         Icon={Compass}
         color="var(--accent-cyan)"
       />
       <MetricCard
-        title="Sunrise"
-        value={formatTime(sunrise)}
+        title={sunCardTitle}
+        value={formatTime(sunCardValue)}
         unitLabel=""
-        description={sunset ? `Sunset ${formatTime(sunset)}` : ''}
-        Icon={Sunrise}
+        description={sunCardDescription}
+        Icon={sunCardTitle === 'Sunset' ? Sunset : Sunrise}
         color="var(--accent-yellow)"
       />
       <MetricCard
@@ -279,7 +302,7 @@ export default function DetailedMetrics({ data, unit }) {
       {airQuality != null && (
         <MetricCard
           title="Air Quality"
-          value={airQuality}
+          value={Math.round(airQuality)}
           unitLabel="AQI"
           description={getAQIDescription(airQuality)}
           Icon={Wind}

@@ -165,13 +165,17 @@ export async function fetchWeatherData(lat, lon, forceRefresh = false) {
     const results = await Promise.allSettled(promises);
     const successfulData = results
         .filter(r => r.status === 'fulfilled')
-        .map(r => r.value);
+        .map(r => r.value)
+        .filter(d => d && typeof d === 'object' && d.current);
 
     if (successfulData.length === 0) {
         const errors = results
             .filter(r => r.status === 'rejected')
             .map(r => r.reason?.message || 'Unknown error');
-        throw new Error(`No weather data available: ${errors.join(', ')}`);
+        if (errors.length > 0) {
+            throw new Error(`No weather data available: ${errors.join(', ')}`);
+        }
+        throw new Error('No weather data available for this location from enabled sources');
     }
 
     const aggregated = aggregateWeatherData(successfulData);

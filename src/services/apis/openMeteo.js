@@ -27,6 +27,7 @@ export async function fetchOpenMeteoData(lat, lon) {
         const hourlyParams = [
             'temperature_2m',
             'weather_code',
+            'precipitation',
             'precipitation_probability',
             'wind_speed_10m',
             'wind_direction_10m',
@@ -70,9 +71,10 @@ export async function fetchOpenMeteoData(lat, lon) {
                 feelsLike: data.current.apparent_temperature,
                 windSpeed: data.current.wind_speed_10m,
                 windDirection: data.current.wind_direction_10m,
-                windGusts: data.current.wind_gusts_10m,
+                windGust: data.current.wind_gusts_10m,
                 humidity: data.current.relative_humidity_2m,
                 dewPoint: data.current.dew_point_2m,
+                precipitation: data.current.precipitation ?? 0,
                 pressure: Math.round(data.current.surface_pressure),
                 uvIndex: data.daily.uv_index_max?.[0] ?? 0,
                 visibility: 10, // Open-Meteo doesn't provide visibility in free tier
@@ -83,10 +85,11 @@ export async function fetchOpenMeteoData(lat, lon) {
                 time: t,
                 temp: data.hourly.temperature_2m[i],
                 condition: mapWmoCode(data.hourly.weather_code[i]),
-                precipitationProbability: data.hourly.precipitation_probability?.[i] ?? null,
+                precipProbability: data.hourly.precipitation_probability?.[i] ?? null,
+                precipAmount: data.hourly.precipitation?.[i] ?? 0,
                 windSpeed: data.hourly.wind_speed_10m?.[i] ?? null,
                 windDirection: data.hourly.wind_direction_10m?.[i] ?? null,
-                windGusts: data.hourly.wind_gusts_10m?.[i] ?? null,
+                windGust: data.hourly.wind_gusts_10m?.[i] ?? null,
                 dewPoint: data.hourly.dew_point_2m?.[i] ?? null,
             })).slice(0, 24),
             daily: data.daily.time.map((t, i) => ({

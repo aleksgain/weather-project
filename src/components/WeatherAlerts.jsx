@@ -168,6 +168,7 @@ export default function WeatherAlerts({ alerts }) {
 
   return (
     <section
+      className="weather-alerts"
       aria-label="Weather alerts"
       aria-live="polite"
       style={{

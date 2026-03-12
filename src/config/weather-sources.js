@@ -65,16 +65,14 @@ export const weatherSources = {
     needsKey: false,
     baseUrl: 'https://api.weather.gov',
   },
-  mock: {
-    id: 'mock',
-    name: 'Mock Data',
-    enabled: parseBool(getEnvVar('MOCK_ENABLED'), false),
-    needsKey: false,
-  },
 };
 
 export const defaultLocation = {
   lat: parseFloat(getEnvVar('DEFAULT_LAT', '40.7128')),
   lon: parseFloat(getEnvVar('DEFAULT_LON', '-74.0060')),
   name: getEnvVar('DEFAULT_LOCATION_NAME', 'New York'),
+};
+
+export const uiConfig = {
+  showSources: parseBool(getEnvVar('SHOW_SOURCES'), false),
 };
