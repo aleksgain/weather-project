@@ -90,6 +90,18 @@ DEFAULT_LOCATION_NAME=London
 
 Then run `npm run dev`.
 
+## Unraid Template
+
+This repo includes a Community Applications template: `unraid-template.xml`.
+
+### Install via Community Applications
+
+1. In Unraid, open **Apps**.
+2. Add your template repository URL:
+   - `https://raw.githubusercontent.com/aleksbgs/weather-project/main/unraid-template.xml`
+3. Search for **Weather App** and install.
+4. Set API keys and fallback location values in the container template (optional).
+
 ## Weather API Sources
 
 ### Open-Meteo (Default)
