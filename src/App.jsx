@@ -278,7 +278,7 @@ function App() {
         </section>
 
         <footer className="app-footer">
-          <p>Weather data from Open-Meteo</p>
+          <p>Weather data aggregated from multiple sources</p>
           <p>Built with React & Vite</p>
         </footer>
       </main>

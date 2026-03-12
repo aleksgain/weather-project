@@ -1,10 +1,11 @@
 # Weather App
 
-A beautiful, accessible weather application built with React and Vite. Features real-time forecasts with hourly and 10-day predictions.
+A weather app focused on source aggregation and confidence scoring. It combines forecasts from multiple providers into one result and shows how trustworthy that result is with a confidence score.
 
 ## Features
 
-- 🌤️ Real-time weather data from multiple sources
+- 🔀 Multi-source weather aggregation (core differentiator)
+- 🎯 Confidence score based on cross-source agreement
 - 📍 Automatic geolocation with fallback to default location
 - 🌡️ Toggle between Celsius and Fahrenheit
 - 📱 Responsive design (mobile, tablet, desktop)
@@ -103,6 +104,8 @@ This repo includes a Community Applications template: `unraid-template.xml`.
 4. Set API keys and fallback location values in the container template (optional).
 
 ## Weather API Sources
+
+The app's primary value is blending these providers into a single forecast and surfacing a confidence score so users can judge forecast reliability at a glance.
 
 ### Open-Meteo (Default)
 - **Free**: No API key required
