@@ -52,7 +52,8 @@ The app supports multiple weather API sources. Configure them via environment va
 | `OPENWEATHER_API_KEY` | - | OpenWeatherMap API key |
 | `WEATHERAPI_ENABLED` | `false` | Enable WeatherAPI |
 | `WEATHERAPI_KEY` | - | WeatherAPI key |
-| `MOCK_ENABLED` | `false` | Enable mock data (for testing) |
+| `NWS_ENABLED` | `false` | Enable National Weather Service (US only) |
+| `SHOW_SOURCES` | `false` | Show debug badge with contributing weather sources |
 | `DEFAULT_LAT` | `40.7128` | Default latitude |
 | `DEFAULT_LON` | `-74.0060` | Default longitude |
 | `DEFAULT_LOCATION_NAME` | `New York` | Default location name |
@@ -82,6 +83,8 @@ Create a `.env` file in the project root:
 OPENMETEO_ENABLED=true
 OPENWEATHER_ENABLED=true
 OPENWEATHER_API_KEY=your_api_key_here
+NWS_ENABLED=true
+SHOW_SOURCES=true
 DEFAULT_LOCATION_NAME=London
 ```
 
@@ -103,6 +106,11 @@ Then run `npm run dev`.
 - **Free tier**: 1,000,000 calls/month
 - **Sign up**: https://www.weatherapi.com/
 - **Features**: Current weather, forecasts, astronomy
+
+### National Weather Service (NWS)
+- **Free**: No API key required
+- **Coverage**: US only (`api.weather.gov`)
+- **Features**: Forecasts and active weather alerts
 
 ## Tech Stack
 

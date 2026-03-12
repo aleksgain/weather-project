@@ -13,9 +13,9 @@ function formatDayLength(hours) {
 }
 
 export default function SunriseSunset({ data }) {
-  if (!data?.location) return null;
-
-  const { lat, lon } = data.location;
+  const lat = data?.location?.lat ?? data?.lat;
+  const lon = data?.location?.lon ?? data?.lon;
+  if (lat == null || lon == null) return null;
   const now = new Date();
   const { sunrise, sunset, polarDay, polarNight } = getSunriseSunset(now, lat, lon);
   const dayLength = getDayLength(now, lat, lon);

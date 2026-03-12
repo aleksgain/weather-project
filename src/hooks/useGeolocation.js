@@ -13,10 +13,13 @@ async function reverseGeocode(lat, lon) {
 
   try {
     const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10`,
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`,
       {
         signal: controller.signal,
-        headers: { 'User-Agent': 'WeatherApp/1.0' },
+        headers: {
+          'User-Agent': 'WeatherApp/1.0',
+          'Accept-Language': 'en',
+        },
       }
     );
     clearTimeout(timeoutId);
@@ -35,6 +38,12 @@ async function reverseGeocode(lat, lon) {
     clearTimeout(timeoutId);
   }
   return formatCoordinates(lat, lon);
+}
+
+function getCurrentPosition(options) {
+  return new Promise((res, rej) => {
+    navigator.geolocation.getCurrentPosition(res, rej, options);
+  });
 }
 
 export function useGeolocation() {
@@ -59,13 +68,22 @@ export function useGeolocation() {
 
     if ('geolocation' in navigator) {
       try {
-        const position = await new Promise((res, rej) => {
-          navigator.geolocation.getCurrentPosition(res, rej, {
+        // First try for a fresh GPS fix to avoid stale cached locations.
+        let position;
+        try {
+          position = await getCurrentPosition({
+            timeout: 12000,
+            maximumAge: 0,
+            enableHighAccuracy: true,
+          });
+        } catch {
+          // Fallback to a faster, potentially cached estimate.
+          position = await getCurrentPosition({
             timeout: 8000,
             maximumAge: 300000,
             enableHighAccuracy: false,
           });
-        });
+        }
         lat = position.coords.latitude;
         lon = position.coords.longitude;
         usingDefault = false;

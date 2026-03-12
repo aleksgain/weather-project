@@ -7,10 +7,11 @@
 /** Source weights for aggregation */
 const SOURCE_WEIGHTS = {
     openMeteo: 1.0,
-    owm: 0.9,
+    owm: 0.9, // legacy alias
+    openWeatherMap: 0.9,
+    weatherapi: 0.85, // legacy alias
     weatherApi: 0.85,
     nws: 1.1,
-    mock: 0.5,
 };
 
 /** Numeric fields to aggregate on current weather */
@@ -70,6 +71,116 @@ function weightedAverage(items, field, weights) {
 
     if (totalWeight === 0) return null;
     return Number((sum / totalWeight).toFixed(1));
+}
+
+/**
+ * Resolve the first numeric alias from an item.
+ * @param {Object} item
+ * @param {Array<string>} fields
+ * @returns {number|null}
+ */
+function getNumericAlias(item, fields) {
+    for (const field of fields) {
+        const val = item?.[field];
+        if (typeof val === 'number' && !Number.isNaN(val)) {
+            return val;
+        }
+    }
+    return null;
+}
+
+/**
+ * Weighted average supporting multiple possible field names.
+ * @param {Array<Object>} items
+ * @param {Array<string>} fields
+ * @param {Array<number>} weights
+ * @returns {number|null}
+ */
+function weightedAverageAlias(items, fields, weights) {
+    let sum = 0;
+    let totalWeight = 0;
+
+    for (let i = 0; i < items.length; i++) {
+        const val = getNumericAlias(items[i], fields);
+        if (val != null) {
+            sum += val * weights[i];
+            totalWeight += weights[i];
+        }
+    }
+
+    if (totalWeight === 0) return null;
+    return Number((sum / totalWeight).toFixed(1));
+}
+
+/**
+ * Weighted circular mean for directional degrees.
+ * @param {Array<Object>} items
+ * @param {Array<number>} weights
+ * @returns {number|null}
+ */
+function weightedWindDirection(items, weights) {
+    let sinSum = 0;
+    let cosSum = 0;
+    let totalWeight = 0;
+
+    for (let i = 0; i < items.length; i++) {
+        const deg = getNumericAlias(items[i], ['windDirection', 'windDeg']);
+        if (deg == null) continue;
+        const normalized = ((deg % 360) + 360) % 360;
+        const rad = normalized * Math.PI / 180;
+        sinSum += Math.sin(rad) * weights[i];
+        cosSum += Math.cos(rad) * weights[i];
+        totalWeight += weights[i];
+    }
+
+    if (totalWeight === 0) return null;
+    const angle = Math.atan2(sinSum / totalWeight, cosSum / totalWeight) * 180 / Math.PI;
+    return Number((((angle + 360) % 360)).toFixed(0));
+}
+
+/**
+ * Weighted average of timestamps, returned as ISO string.
+ * @param {Array<Object>} items
+ * @param {Array<string>} fields
+ * @param {Array<number>} weights
+ * @returns {string|null}
+ */
+function weightedTimeIso(items, fields, weights) {
+    let sum = 0;
+    let totalWeight = 0;
+
+    for (let i = 0; i < items.length; i++) {
+        for (const field of fields) {
+            const raw = items[i]?.[field];
+            if (!raw) continue;
+            const ts = new Date(raw).getTime();
+            if (Number.isNaN(ts)) continue;
+            sum += ts * weights[i];
+            totalWeight += weights[i];
+            break;
+        }
+    }
+
+    if (totalWeight === 0) return null;
+    return new Date(sum / totalWeight).toISOString();
+}
+
+/**
+ * Approximate numeric AQI from EPA index buckets (1-6).
+ * @param {number|null|undefined} usEpaIndex
+ * @returns {number|null}
+ */
+function mapEpaIndexToAqi(usEpaIndex) {
+    if (typeof usEpaIndex !== 'number' || Number.isNaN(usEpaIndex)) return null;
+    const midpointByIndex = {
+        1: 25,
+        2: 75,
+        3: 125,
+        4: 175,
+        5: 250,
+        6: 350,
+    };
+    return midpointByIndex[usEpaIndex] ?? null;
 }
 
 /**
@@ -161,6 +272,39 @@ function aggregateCurrent(datasets, weights) {
     })).filter(e => e.condition);
     result.condition = voteCondition(conditionEntries);
 
+    // Aggregate fields not in the base numeric schema
+    const windDirection = weightedWindDirection(currents, weights);
+    if (windDirection != null) result.windDirection = windDirection;
+
+    const windGust = weightedAverageAlias(currents, ['windGust', 'windGusts'], weights);
+    if (windGust != null) result.windGust = windGust;
+
+    const dewPoint = weightedAverageAlias(currents, ['dewPoint'], weights);
+    if (dewPoint != null) result.dewPoint = dewPoint;
+
+    const precipitation = weightedAverageAlias(currents, ['precipitation'], weights);
+    if (precipitation != null) result.precipitation = precipitation;
+
+    const sunrise = weightedTimeIso(currents, ['sunrise'], weights);
+    if (sunrise) result.sunrise = sunrise;
+
+    const sunset = weightedTimeIso(currents, ['sunset'], weights);
+    if (sunset) result.sunset = sunset;
+
+    // Prefer first available scalar AQI value (0-500) when present.
+    for (const current of currents) {
+        const aqi = getNumericAlias(current, ['airQualityAqi', 'airQuality']);
+        if (typeof aqi === 'number' && !Number.isNaN(aqi)) {
+            result.airQuality = aqi;
+            break;
+        }
+        const fallbackAqi = mapEpaIndexToAqi(current?.airQuality?.usEpaIndex);
+        if (fallbackAqi != null) {
+            result.airQuality = fallbackAqi;
+            break;
+        }
+    }
+
     return result;
 }
 
@@ -199,6 +343,18 @@ function mergeHourly(datasets, weights) {
             weight: itemWeights[idx],
         })).filter(e => e.condition);
         merged.condition = voteCondition(condEntries);
+
+        const precipProbability = weightedAverageAlias(entries, ['precipProbability', 'precipitationProbability', 'chanceOfRain'], itemWeights);
+        if (precipProbability != null) merged.precipProbability = precipProbability;
+
+        const precipAmount = weightedAverageAlias(entries, ['precipAmount', 'precipitation', 'precipitationAmount'], itemWeights);
+        if (precipAmount != null) merged.precipAmount = precipAmount;
+
+        const windSpeed = weightedAverageAlias(entries, ['windSpeed'], itemWeights);
+        if (windSpeed != null) merged.windSpeed = windSpeed;
+
+        const windDirection = weightedWindDirection(entries, itemWeights);
+        if (windDirection != null) merged.windDirection = windDirection;
 
         result.push(merged);
     }
@@ -261,13 +417,16 @@ function mergeDaily(datasets, weights) {
  * @returns {Object} Aggregated weather data with confidence and sources
  */
 export function aggregateWeatherData(datasets) {
-    if (!Array.isArray(datasets) || datasets.length === 0) {
+    const validDatasets = (Array.isArray(datasets) ? datasets : [])
+        .filter(d => d && typeof d === 'object' && d.current);
+
+    if (validDatasets.length === 0) {
         throw new Error('No datasets provided for aggregation');
     }
 
     // Single-source passthrough
-    if (datasets.length === 1) {
-        const d = datasets[0];
+    if (validDatasets.length === 1) {
+        const d = validDatasets[0];
         return {
             current: { ...d.current },
             hourly: d.hourly ? [...d.hourly] : [],
@@ -277,14 +436,15 @@ export function aggregateWeatherData(datasets) {
         };
     }
 
-    const sources = datasets.map(d => d.source || 'unknown');
-    const weights = datasets.map(d => getWeight(d.source));
+    const sources = validDatasets.map(d => d.source || 'unknown');
+    const weights = validDatasets.map(d => getWeight(d.source));
 
     return {
-        current: aggregateCurrent(datasets, weights),
-        hourly: mergeHourly(datasets, weights),
-        daily: mergeDaily(datasets, weights),
-        confidence: calculateConfidence(datasets),
+        current: aggregateCurrent(validDatasets, weights),
+        hourly: mergeHourly(validDatasets, weights),
+        daily: mergeDaily(validDatasets, weights),
+        confidence: calculateConfidence(validDatasets),
+        sourceCount: validDatasets.length,
         sources,
     };
 }

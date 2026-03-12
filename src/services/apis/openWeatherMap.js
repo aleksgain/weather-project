@@ -1,17 +1,6 @@
 import { mapOwmCondition } from '../../utils/weatherConditions.js';
 
 /**
- * Converts wind direction in degrees to compass direction string.
- * @param {number} degrees - Wind direction in degrees (0-360)
- * @returns {string} Compass direction (e.g., "N", "NE", "SW")
- */
-function degreesToDirection(degrees) {
-    const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
-    const index = Math.round(degrees / 22.5) % 16;
-    return directions[index];
-}
-
-/**
  * Fetches weather data from OpenWeatherMap API (free tier 2.5 endpoints).
  * @param {number} lat - Latitude
  * @param {number} lon - Longitude
@@ -81,13 +70,17 @@ export async function fetchOpenWeatherMapData(lat, lon, apiKey) {
             condition: mapOwmCondition(entry.weather[0].id),
             humidity: entry.main.humidity,
             windSpeed: Math.round((entry.wind.speed * 3.6) * 10) / 10, // m/s to km/h
+            windDirection: entry.wind.deg ?? null,
+            windGust: entry.wind.gust ? Math.round((entry.wind.gust * 3.6) * 10) / 10 : null,
+            precipProbability: entry.pop != null ? Math.round(entry.pop * 100) : null,
+            precipAmount: entry.rain?.['3h'] ?? entry.snow?.['3h'] ?? 0,
         }));
 
         const todayKey = new Date().toISOString().split('T')[0];
         const todayData = dailyMap[todayKey];
 
         return {
-            source: 'openweathermap',
+            source: 'openWeatherMap',
             current: {
                 temp: Math.round(weather.main.temp * 10) / 10,
                 condition: mapOwmCondition(weather.weather[0].id),
@@ -95,7 +88,7 @@ export async function fetchOpenWeatherMapData(lat, lon, apiKey) {
                 low: todayData ? Math.round(todayData.low * 10) / 10 : Math.round(weather.main.temp_min * 10) / 10,
                 feelsLike: Math.round(weather.main.feels_like * 10) / 10,
                 windSpeed: Math.round((weather.wind.speed * 3.6) * 10) / 10, // m/s to km/h
-                windDirection: degreesToDirection(weather.wind.deg ?? 0),
+                windDirection: weather.wind.deg ?? null,
                 windGust: weather.wind.gust ? Math.round((weather.wind.gust * 3.6) * 10) / 10 : null,
                 humidity: weather.main.humidity,
                 pressure: weather.main.pressure,

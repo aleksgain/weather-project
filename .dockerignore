@@ -5,3 +5,13 @@ dist
 .env
 docker-compose.yml
 README.md
+.auto-claude/
+.auto-claude-security.json
+.claude_settings.json
+.worktrees/
+logs/
+.github/
+.vscode/
+.idea/
+coverage/
+*.log

@@ -43,7 +43,10 @@ export async function fetchWeatherApiData(lat, lon, apiKey) {
  */
 function normalizeWeatherApiData(data) {
     const { current, forecast } = data;
+    const todayForecast = forecast?.forecastday?.[0];
     const today = forecast?.forecastday?.[0]?.day;
+    const sunrise = parseWeatherApiAstroTime(todayForecast?.date, todayForecast?.astro?.sunrise);
+    const sunset = parseWeatherApiAstroTime(todayForecast?.date, todayForecast?.astro?.sunset);
 
     const airQuality = current?.air_quality
         ? {
@@ -56,9 +59,10 @@ function normalizeWeatherApiData(data) {
               usEpaIndex: current.air_quality['us-epa-index'] ?? null,
           }
         : null;
+    const airQualityAqi = calculateUsAqiFromPm25(airQuality?.pm2_5);
 
     return {
-        source: 'weatherapi',
+        source: 'weatherApi',
         current: {
             temp: current.temp_c,
             condition: mapWeatherApiCondition(current.condition?.text),
@@ -67,11 +71,17 @@ function normalizeWeatherApiData(data) {
             low: today?.mintemp_c ?? null,
             feelsLike: current.feelslike_c,
             windSpeed: current.wind_kph,
+            windDirection: current.wind_degree ?? null,
+            windGust: current.gust_kph ?? null,
             humidity: current.humidity,
             pressure: current.pressure_mb,
             uvIndex: current.uv,
             visibility: current.vis_km,
+            precipitation: current.precip_mm ?? 0,
+            sunrise,
+            sunset,
             airQuality,
+            airQualityAqi,
         },
         hourly: normalizeHourly(forecast?.forecastday ?? []),
         daily: normalizeDaily(forecast?.forecastday ?? []),
@@ -93,9 +103,12 @@ function normalizeHourly(forecastDays) {
                 condition: mapWeatherApiCondition(hour.condition?.text),
                 conditionText: hour.condition?.text ?? '',
                 windSpeed: hour.wind_kph,
+                windDirection: hour.wind_degree ?? null,
+                windGust: hour.gust_kph ?? null,
                 humidity: hour.humidity,
                 feelsLike: hour.feelslike_c,
-                chanceOfRain: hour.chance_of_rain ?? 0,
+                precipProbability: hour.chance_of_rain ?? 0,
+                precipAmount: hour.precip_mm ?? 0,
             });
         }
     }
@@ -120,4 +133,42 @@ function normalizeDaily(forecastDays) {
         chanceOfRain: day.day.daily_chance_of_rain ?? 0,
         totalPrecipMm: day.day.totalprecip_mm ?? 0,
     }));
+}
+
+function parseWeatherApiAstroTime(dateString, timeString) {
+    if (!dateString || !timeString) return null;
+    const parsed = new Date(`${dateString} ${timeString}`);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed.toISOString();
+}
+
+/**
+ * Convert PM2.5 concentration (ug/m3) to US EPA AQI (0-500).
+ * @param {number|null|undefined} pm25
+ * @returns {number|null}
+ */
+function calculateUsAqiFromPm25(pm25) {
+    if (typeof pm25 !== 'number' || Number.isNaN(pm25) || pm25 < 0) {
+        return null;
+    }
+
+    const c = Math.floor(pm25 * 10) / 10;
+    const breakpoints = [
+        [0.0, 12.0, 0, 50],
+        [12.1, 35.4, 51, 100],
+        [35.5, 55.4, 101, 150],
+        [55.5, 150.4, 151, 200],
+        [150.5, 250.4, 201, 300],
+        [250.5, 350.4, 301, 400],
+        [350.5, 500.4, 401, 500],
+    ];
+
+    for (const [cLow, cHigh, iLow, iHigh] of breakpoints) {
+        if (c >= cLow && c <= cHigh) {
+            const aqi = ((iHigh - iLow) / (cHigh - cLow)) * (c - cLow) + iLow;
+            return Math.round(aqi);
+        }
+    }
+
+    return 500;
 }

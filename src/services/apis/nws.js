@@ -58,6 +58,23 @@ function fToC(f) {
 }
 
 /**
+ * Converts cardinal wind direction (e.g. "NW") to degrees.
+ * @param {string|null} dir
+ * @returns {number|null}
+ */
+function cardinalToDegrees(dir) {
+    if (!dir || typeof dir !== 'string') return null;
+    const normalized = dir.trim().toUpperCase();
+    const map = {
+        N: 0, NNE: 22.5, NE: 45, ENE: 67.5,
+        E: 90, ESE: 112.5, SE: 135, SSE: 157.5,
+        S: 180, SSW: 202.5, SW: 225, WSW: 247.5,
+        W: 270, WNW: 292.5, NW: 315, NNW: 337.5,
+    };
+    return map[normalized] ?? null;
+}
+
+/**
  * Fetches weather data from the NWS API (US-only).
  * @param {number} lat - Latitude
  * @param {number} lon - Longitude
@@ -154,8 +171,8 @@ export async function fetchNwsData(lat, lon) {
                 low,
                 feelsLike: currentTemp, // NWS doesn't provide feels-like directly
                 windSpeed: parseWindSpeed(currentPeriod?.windSpeed),
-                windDirection: currentPeriod?.windDirection ?? null,
-                windGusts: null,
+                windDirection: cardinalToDegrees(currentPeriod?.windDirection),
+                windGust: null,
                 humidity: currentPeriod?.relativeHumidity?.value ?? null,
                 dewPoint: currentPeriod?.dewpoint?.value != null
                     ? Math.round(currentPeriod.dewpoint.value * 10) / 10
@@ -170,10 +187,10 @@ export async function fetchNwsData(lat, lon) {
                 time: p.startTime,
                 temp: p.temperatureUnit === 'F' ? fToC(p.temperature) : p.temperature,
                 condition: mapNwsCondition(p.shortForecast),
-                precipitationProbability: p.probabilityOfPrecipitation?.value ?? null,
+                precipProbability: p.probabilityOfPrecipitation?.value ?? null,
                 windSpeed: parseWindSpeed(p.windSpeed),
-                windDirection: p.windDirection ?? null,
-                windGusts: null,
+                windDirection: cardinalToDegrees(p.windDirection),
+                windGust: null,
                 dewPoint: p.dewpoint?.value != null
                     ? Math.round(p.dewpoint.value * 10) / 10
                     : null,

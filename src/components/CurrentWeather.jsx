@@ -140,7 +140,7 @@ export default function CurrentWeather({ data, unit, isManualLocation }) {
   const { temp, condition, high, low, feelsLike } = data.current;
   const precipProbability = data.current.precipProbability;
   const sourceCount = data.current.sourceCount || data.sourceCount;
-  const confidence = data.current.confidence || data.confidence;
+  const confidence = data.current.confidence ?? data.confidence;
   const iconColor = getIconColor(condition);
   const conditionType = getConditionType(condition);
 
@@ -311,7 +311,7 @@ export default function CurrentWeather({ data, unit, isManualLocation }) {
           }}
         >
           Data from {sourceCount} {sourceCount === 1 ? 'source' : 'sources'}
-          {confidence != null && ` \u00b7 ${Math.round(confidence)}% confidence`}
+          {confidence != null && ` \u00b7 ${Math.round(confidence * 100)}% confidence`}
         </div>
       )}
     </article>

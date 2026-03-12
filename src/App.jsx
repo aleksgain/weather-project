@@ -1,8 +1,9 @@
-import { useEffect, useState, useCallback, lazy, Suspense } from 'react';
+import { useEffect, useState, useCallback, useMemo, lazy, Suspense } from 'react';
 import { RefreshCw, CloudOff, MapPin } from 'lucide-react';
 import { useGeolocation } from './hooks/useGeolocation';
 import { useWeatherData } from './hooks/useWeatherData';
 import { clearCache } from './services/weather';
+import { uiConfig } from './config/weather-sources';
 import CurrentWeather from './components/CurrentWeather';
 import Forecast from './components/Forecast';
 import DetailedMetrics from './components/DetailedMetrics';
@@ -78,10 +79,13 @@ function App() {
     ? { latitude: manualLocation.lat, longitude: manualLocation.lon, name: manualLocation.name }
     : overrideLocation;
 
-  const activeLocation = effectiveOverride || {
-    latitude: geo.latitude,
-    longitude: geo.longitude,
-  };
+  const activeLocation = useMemo(() => {
+    if (effectiveOverride) return effectiveOverride;
+    return {
+      latitude: geo.latitude,
+      longitude: geo.longitude,
+    };
+  }, [effectiveOverride, geo.latitude, geo.longitude]);
   const activeLocationName = effectiveOverride
     ? effectiveOverride.name
     : geo.locationName;
@@ -171,86 +175,107 @@ function App() {
       }
     : null;
 
+  const showSourcesBadge = uiConfig.showSources && displayData?.sources?.length > 0;
+  const sourceNames = showSourcesBadge ? displayData.sources.join(', ') : '';
+
   return (
     <div style={{ position: 'relative', width: '100%' }}>
       <header className="app-header">
-        <LocationSearch
-          currentLocation={weatherData?.locationName}
-          isManual={!!manualLocation}
-          onLocationSelect={handleLocationChange}
-          onReset={handleResetLocation}
-        />
-        <UnitToggle unit={unit} onToggle={toggleUnit} />
-        <button
-          className={`refresh-button ${refreshing ? 'spinning' : ''}`}
-          onClick={refresh}
-          disabled={refreshing}
-          aria-label={refreshing ? 'Refreshing...' : 'Refresh weather data'}
-          title="Refresh"
-        >
-          <RefreshCw size={20} aria-hidden="true" />
-        </button>
-        {overrideLocation && (
+        <div className="app-header-location">
+          <LocationSearch
+            currentLocation={weatherData?.locationName}
+            isManual={!!manualLocation}
+            onLocationSelect={handleLocationChange}
+            onReset={handleResetLocation}
+          />
+        </div>
+        <div className="app-header-controls">
+          <UnitToggle unit={unit} onToggle={toggleUnit} />
           <button
-            className="refresh-button"
-            onClick={handleUseMyLocation}
-            aria-label="Use my current location"
-            title="Use my location"
+            className={`refresh-button ${refreshing ? 'spinning' : ''}`}
+            onClick={refresh}
+            disabled={refreshing}
+            aria-label={refreshing ? 'Refreshing...' : 'Refresh weather data'}
+            title="Refresh"
           >
-            <MapPin size={20} aria-hidden="true" />
+            <RefreshCw size={20} aria-hidden="true" />
           </button>
-        )}
-        {lastUpdated && (
-          <span className="last-updated">
-            Updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </span>
-        )}
+          {overrideLocation && (
+            <button
+              className="refresh-button"
+              onClick={handleUseMyLocation}
+              aria-label="Use my current location"
+              title="Use my location"
+            >
+              <MapPin size={20} aria-hidden="true" />
+            </button>
+          )}
+          {lastUpdated && (
+            <span className="last-updated">
+              Updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          )}
+          {showSourcesBadge && (
+            <span className="last-updated" title={`Sources: ${sourceNames}`}>
+              Sources: {sourceNames}
+              {displayData.confidence != null ? ` · ${Math.round(displayData.confidence * 100)}% confidence` : ''}
+            </span>
+          )}
+        </div>
       </header>
 
       <main id="main-content" tabIndex={-1}>
         <WeatherAlerts alerts={alerts} />
 
-        <CurrentWeather data={displayData} unit={unit} isManualLocation={!!manualLocation} />
+        <div className="layout-columns">
+          <section className="layout-col layout-col-main">
+            <CurrentWeather data={displayData} unit={unit} isManualLocation={!!manualLocation} />
+            <PrecipitationChart data={displayData} unit={unit} />
+          </section>
 
-        <Forecast data={displayData} unit={unit} />
-
-        <PrecipitationChart data={displayData} unit={unit} />
-
-        <div className="widgets-row">
-          <SunriseSunset data={displayData} />
-          <WindCompass data={displayData} unit={unit} />
+          <section className="layout-col layout-col-side">
+            <Forecast data={displayData} unit={unit} />
+            <div className="widgets-row">
+              <SunriseSunset data={displayData} />
+              <WindCompass data={displayData} unit={unit} />
+            </div>
+          </section>
         </div>
 
-        <DetailedMetrics data={displayData} unit={unit} />
+        <section className="layout-metrics">
+          <DetailedMetrics data={displayData} unit={unit} />
+        </section>
 
-        <Suspense
-          fallback={
-            <div
-              className="glass-panel"
-              style={{
-                minHeight: 280,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
+        <section className="layout-map">
+          <Suspense
+            fallback={
               <div
-                className="skeleton"
+                className="glass-panel"
                 style={{
-                  width: '100%',
-                  height: 260,
-                  borderRadius: 'var(--card-radius-sm)',
+                  minHeight: 280,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
-              />
-            </div>
-          }
-        >
-          <WeatherMapOverlays
-            lat={displayData?.lat}
-            lon={displayData?.lon}
-            locationName={displayData?.locationName}
-          />
-        </Suspense>
+              >
+                <div
+                  className="skeleton"
+                  style={{
+                    width: '100%',
+                    height: 260,
+                    borderRadius: 'var(--card-radius-sm)',
+                  }}
+                />
+              </div>
+            }
+          >
+            <WeatherMapOverlays
+              lat={displayData?.lat}
+              lon={displayData?.lon}
+              locationName={displayData?.locationName}
+            />
+          </Suspense>
+        </section>
 
         <footer className="app-footer">
           <p>Weather data from Open-Meteo</p>
