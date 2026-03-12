@@ -98,7 +98,7 @@ This repo includes a Community Applications template: `unraid-template.xml`.
 
 1. In Unraid, open **Apps**.
 2. Add your template repository URL:
-   - `https://raw.githubusercontent.com/aleksbgs/weather-project/main/unraid-template.xml`
+   - `https://raw.githubusercontent.com/aleksgain/weather-project/main/unraid-template.xml`
 3. Search for **Weather App** and install.
 4. Set API keys and fallback location values in the container template (optional).
 
