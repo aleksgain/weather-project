@@ -119,8 +119,8 @@ function WeatherAnimationBackground({ conditionType, iconColor }) {
   return null;
 }
 
-function renderWeatherIcon(condition, iconColor) {
-  const Icon = getWeatherIcon(condition);
+function renderWeatherIcon(condition, iconColor, isNight) {
+  const Icon = getWeatherIcon(condition, isNight);
   return (
     <Icon
       size={80}
@@ -134,14 +134,25 @@ function renderWeatherIcon(condition, iconColor) {
   );
 }
 
-export default function CurrentWeather({ data, unit, isManualLocation }) {
+export default function CurrentWeather({ data, unit, isManualLocation, referenceTime }) {
   if (!data?.current) return null;
 
-  const { temp, condition, high, low, feelsLike } = data.current;
+  const { temp, condition, high, low, feelsLike, sunrise, sunset } = data.current;
   const precipProbability = data.current.precipProbability;
   const sourceCount = data.current.sourceCount || data.sourceCount;
   const confidence = data.current.confidence ?? data.confidence;
-  const iconColor = getIconColor(condition);
+  const nowTs = referenceTime instanceof Date ? referenceTime.getTime() : NaN;
+  const effectiveNowTs = Number.isFinite(nowTs)
+    ? nowTs
+    : new Date(data.hourly?.[0]?.time ?? data.current.sunrise ?? data.current.sunset ?? 0).getTime();
+  const sunriseTs = sunrise ? new Date(sunrise).getTime() : NaN;
+  const sunsetTs = sunset ? new Date(sunset).getTime() : NaN;
+  const hasSunCycle = Number.isFinite(sunriseTs) && Number.isFinite(sunsetTs);
+  const currentHour = new Date(effectiveNowTs).getHours();
+  const isNight = hasSunCycle
+    ? effectiveNowTs < sunriseTs || effectiveNowTs > sunsetTs
+    : currentHour < 6 || currentHour >= 18;
+  const iconColor = getIconColor(condition, isNight);
   const conditionType = getConditionType(condition);
 
   return (
@@ -217,7 +228,7 @@ export default function CurrentWeather({ data, unit, isManualLocation }) {
           gap: 'var(--spacing-lg)',
         }}
       >
-        {renderWeatherIcon(condition, iconColor)}
+        {renderWeatherIcon(condition, iconColor, isNight)}
         <div
           className="mono"
           style={{

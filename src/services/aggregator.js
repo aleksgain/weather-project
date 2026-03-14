@@ -402,6 +402,12 @@ function mergeDaily(datasets, weights) {
         })).filter(e => e.condition);
         merged.condition = voteCondition(condEntries);
 
+        const sunrise = weightedTimeIso(entries, ['sunrise'], itemWeights);
+        if (sunrise) merged.sunrise = sunrise;
+
+        const sunset = weightedTimeIso(entries, ['sunset'], itemWeights);
+        if (sunset) merged.sunset = sunset;
+
         result.push(merged);
     }
 

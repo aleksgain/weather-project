@@ -21,12 +21,14 @@ function WindArrow({ direction }) {
   );
 }
 
-export default function Forecast({ data, unit }) {
+export default function Forecast({ data, unit, referenceTime }) {
   if (!data?.hourly || !data?.daily) return null;
 
   const hourly = data.hourly;
   const daily = data.daily;
-  const nowTs = Date.now();
+  const nowTs = referenceTime instanceof Date
+    ? referenceTime.getTime()
+    : new Date(hourly[0]?.time ?? 0).getTime();
 
   const normalizedHourly = [...hourly]
     .filter((entry) => entry?.time && !Number.isNaN(new Date(entry.time).getTime()))
@@ -46,6 +48,47 @@ export default function Forecast({ data, unit }) {
       hour: 'numeric',
       minute: '2-digit',
     });
+
+  const getDayKey = (value) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toISOString().slice(0, 10);
+  };
+
+  const sunTimesByDay = new Map(
+    daily
+      .filter((entry) => entry?.sunrise || entry?.sunset)
+      .map((entry) => [getDayKey(entry.date), { sunrise: entry.sunrise, sunset: entry.sunset }])
+      .filter(([key]) => key)
+  );
+
+  // Fallback for today if only current sunrise/sunset is available.
+  const todayKey = getDayKey(nowTs);
+  if (!sunTimesByDay.has(todayKey) && (data.current?.sunrise || data.current?.sunset)) {
+    sunTimesByDay.set(todayKey, {
+      sunrise: data.current?.sunrise ?? null,
+      sunset: data.current?.sunset ?? null,
+    });
+  }
+
+  const isNightForTime = (time) => {
+    const timestamp = new Date(time).getTime();
+    if (Number.isNaN(timestamp)) return false;
+
+    const dayKey = getDayKey(time);
+    const daySunTimes = sunTimesByDay.get(dayKey);
+    const sunriseTs = daySunTimes?.sunrise ? new Date(daySunTimes.sunrise).getTime() : NaN;
+    const sunsetTs = daySunTimes?.sunset ? new Date(daySunTimes.sunset).getTime() : NaN;
+
+    if (Number.isFinite(sunriseTs) && Number.isFinite(sunsetTs)) {
+      return timestamp < sunriseTs || timestamp > sunsetTs;
+    }
+
+    // Conservative fallback when API does not provide sun times.
+    const hour = new Date(time).getHours();
+    return hour < 6 || hour >= 18;
+  };
 
   // Calculate temperature range for proper bar positioning
   const allTemps = daily.flatMap((d) => [d.high, d.low]).filter((t) => typeof t === 'number' && !Number.isNaN(t));
@@ -75,7 +118,7 @@ export default function Forecast({ data, unit }) {
           aria-label="Hourly weather forecast"
         >
           {visibleHourly.map((hour, index) => {
-            const Icon = getWeatherIcon(hour.condition);
+            const Icon = getWeatherIcon(hour.condition, isNightForTime(hour.time));
             const hourTs = new Date(hour.time).getTime();
             const isNow = index === 0 && Math.abs(hourTs - nowTs) <= 90 * 60 * 1000;
             const precipProb = hour.precipProbability ?? hour.precipitationProbability ?? null;
