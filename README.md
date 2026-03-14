@@ -14,6 +14,16 @@ A weather app focused on source aggregation and confidence scoring. It combines 
 - 🎨 Aurora-inspired UI across dark and light themes
 - 🐳 Docker-ready with runtime configuration
 
+## Screenshots
+
+### Desktop
+
+![Weather App desktop screenshot](docs/images/desktop.png)
+
+### Mobile
+
+![Weather App mobile screenshot](docs/images/mobile.jpg)
+
 ## Quick Start
 
 ### Local Development
