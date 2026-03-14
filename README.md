@@ -4,13 +4,14 @@ A weather app focused on source aggregation and confidence scoring. It combines 
 
 ## Features
 
-- 🔀 Multi-source weather aggregation (core differentiator)
+- 🔀 Multi-source weather aggregation
 - 🎯 Confidence score based on cross-source agreement
 - 📍 Automatic geolocation with fallback to default location
 - 🌡️ Toggle between Celsius and Fahrenheit
+- 🌓 Theme switcher with `System`, `Dark`, and `Light` modes
 - 📱 Responsive design (mobile, tablet, desktop)
 - ♿ Accessible (ARIA labels, keyboard navigation)
-- 🎨 Beautiful dark aurora-themed UI
+- 🎨 Aurora-inspired UI across dark and light themes
 - 🐳 Docker-ready with runtime configuration
 
 ## Quick Start
@@ -90,6 +91,28 @@ DEFAULT_LOCATION_NAME=London
 ```
 
 Then run `npm run dev`.
+
+## Theme Modes
+
+Use the theme toggle in the header to cycle between:
+
+- `System` (follows OS/browser preference)
+- `Dark`
+- `Light`
+
+Your selected mode is saved in local storage and restored on your next visit.
+
+## Releases
+
+Release automation is driven by GitHub Actions:
+
+- Push a semantic version tag (for example `v1.2.3`) to create a full release
+- Push to `main` to create a prerelease snapshot
+
+Each release includes:
+
+- Docker image publish to `ghcr.io`
+- Auto-generated release notes
 
 ## Unraid Template
 
