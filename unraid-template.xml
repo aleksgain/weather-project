@@ -13,7 +13,7 @@
   <Category>Productivity: HomeAutomation:</Category>
   <WebUI>http://[IP]:[PORT:8080]/</WebUI>
   <TemplateURL>https://raw.githubusercontent.com/aleksgain/weather-project/main/unraid-template.xml</TemplateURL>
-  <Icon>https://raw.githubusercontent.com/homarr-labs/dashboard-icons/main/svg/weather.svg</Icon>
+  <Icon>https://raw.githubusercontent.com/aleksgain/weather-project/main/public/favicon.svg</Icon>
   <Config Name="WebUI Port" Target="80" Default="8080" Mode="tcp" Description="Container web port" Type="Port" Display="always" Required="true" Mask="false">8080</Config>
   <Config Name="OPENMETEO_ENABLED" Target="OPENMETEO_ENABLED" Default="true" Mode="" Description="Enable Open-Meteo source (no API key required)" Type="Variable" Display="advanced" Required="false" Mask="false">true</Config>
   <Config Name="OPENWEATHER_ENABLED" Target="OPENWEATHER_ENABLED" Default="false" Mode="" Description="Enable OpenWeatherMap source" Type="Variable" Display="advanced" Required="false" Mask="false">false</Config>
