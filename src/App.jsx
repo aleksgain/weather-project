@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useMemo, lazy, Suspense } from 'react';
 import { RefreshCw, CloudOff, MapPin } from 'lucide-react';
 import { useGeolocation } from './hooks/useGeolocation';
+import { useTheme } from './hooks/useTheme';
 import { useWeatherData } from './hooks/useWeatherData';
 import { clearCache } from './services/weather';
 import { uiConfig } from './config/weather-sources';
@@ -13,6 +14,7 @@ import WeatherAlerts from './components/WeatherAlerts';
 import PrecipitationChart from './components/PrecipitationChart';
 import SunriseSunset from './components/SunriseSunset';
 import WindCompass from './components/WindCompass';
+import ThemeToggle from './components/ThemeToggle';
 
 // Lazy-load heavy map components
 const WeatherMapOverlays = lazy(() => import('./components/WeatherMapOverlays'));
@@ -58,6 +60,7 @@ function readStoredLocation() {
 
 function App() {
   const geo = useGeolocation();
+  const { themeMode, resolvedTheme, cycleThemeMode } = useTheme();
   const [overrideLocation, setOverrideLocation] = useState(null);
   const [manualLocation, setManualLocation] = useState(readStoredLocation);
 
@@ -190,6 +193,7 @@ function App() {
           />
         </div>
         <div className="app-header-controls">
+          <ThemeToggle mode={themeMode} resolvedTheme={resolvedTheme} onToggle={cycleThemeMode} />
           <UnitToggle unit={unit} onToggle={toggleUnit} />
           <button
             className={`refresh-button ${refreshing ? 'spinning' : ''}`}
