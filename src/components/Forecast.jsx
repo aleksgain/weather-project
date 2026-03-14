@@ -26,6 +26,26 @@ export default function Forecast({ data, unit }) {
 
   const hourly = data.hourly;
   const daily = data.daily;
+  const nowTs = Date.now();
+
+  const normalizedHourly = [...hourly]
+    .filter((entry) => entry?.time && !Number.isNaN(new Date(entry.time).getTime()))
+    .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+
+  // Start from the closest relevant hour to "now" instead of always midnight.
+  const firstRelevantIndex = normalizedHourly.findIndex(
+    (entry) => new Date(entry.time).getTime() >= nowTs - 30 * 60 * 1000
+  );
+  const visibleHourly = (
+    firstRelevantIndex === -1
+      ? normalizedHourly
+      : normalizedHourly.slice(firstRelevantIndex)
+  ).slice(0, 12);
+  const formatHourlyLabel = (time) =>
+    new Date(time).toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
 
   // Calculate temperature range for proper bar positioning
   const allTemps = daily.flatMap((d) => [d.high, d.low]).filter((t) => typeof t === 'number' && !Number.isNaN(t));
@@ -54,12 +74,13 @@ export default function Forecast({ data, unit }) {
           role="list"
           aria-label="Hourly weather forecast"
         >
-          {hourly.slice(0, 12).map((hour, index) => {
+          {visibleHourly.map((hour, index) => {
             const Icon = getWeatherIcon(hour.condition);
-            const hourNum = new Date(hour.time).getHours();
-            const isNow = index === 0;
+            const hourTs = new Date(hour.time).getTime();
+            const isNow = index === 0 && Math.abs(hourTs - nowTs) <= 90 * 60 * 1000;
             const precipProb = hour.precipProbability ?? hour.precipitationProbability ?? null;
             const windDir = hour.windDirection ?? null;
+            const hourLabel = formatHourlyLabel(hour.time);
 
             return (
               <div
@@ -76,7 +97,7 @@ export default function Forecast({ data, unit }) {
                   transition: 'all 0.2s ease',
                 }}
                 role="listitem"
-                aria-label={`${isNow ? 'Now' : `${hourNum}:00`}: ${formatTemp(hour.temp, unit)} degrees, ${hour.condition}`}
+                aria-label={`${isNow ? 'Now' : hourLabel}: ${formatTemp(hour.temp, unit)} degrees, ${hour.condition}`}
               >
                 <span
                   style={{
@@ -85,7 +106,7 @@ export default function Forecast({ data, unit }) {
                     fontWeight: isNow ? 600 : 400,
                   }}
                 >
-                  {isNow ? 'Now' : `${hourNum}:00`}
+                  {isNow ? 'Now' : hourLabel}
                 </span>
                 <Icon
                   size={22}
