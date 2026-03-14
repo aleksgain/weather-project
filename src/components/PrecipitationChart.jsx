@@ -42,6 +42,11 @@ export default function PrecipitationChart({ data, unit }) {
 
   const gridlines = [25, 50, 75];
   const labelStep = Math.max(1, Math.ceil(barCount / 12));
+  const formatHourlyLabel = (time) =>
+    new Date(time).toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
   const clearInteraction = () => {
     setActiveChanceBar(null);
     setActiveAmountBar(null);
@@ -150,6 +155,24 @@ export default function PrecipitationChart({ data, unit }) {
                   />
                 );
               })}
+
+              {hours.map((hour, i) => {
+                if (i % labelStep !== 0) return null;
+                const x = chartStartX + i * barWidth + barWidth / 2;
+                return (
+                  <text
+                    key={i}
+                    x={x}
+                    y={viewH - 5}
+                    fill="var(--text-muted)"
+                    fontSize="9"
+                    fontFamily="inherit"
+                    textAnchor="middle"
+                  >
+                    {formatHourlyLabel(hour.time)}
+                  </text>
+                );
+              })}
             </svg>
           </div>
 
@@ -224,7 +247,6 @@ export default function PrecipitationChart({ data, unit }) {
 
               {hours.map((hour, i) => {
                 if (i % labelStep !== 0) return null;
-                const hourNum = new Date(hour.time).getHours();
                 const x = chartStartX + i * barWidth + barWidth / 2;
                 return (
                   <text
@@ -236,7 +258,7 @@ export default function PrecipitationChart({ data, unit }) {
                     fontFamily="inherit"
                     textAnchor="middle"
                   >
-                    {hourNum}:00
+                    {formatHourlyLabel(hour.time)}
                   </text>
                 );
               })}
