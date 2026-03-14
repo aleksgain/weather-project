@@ -67,7 +67,7 @@ export default function Forecast({ data, unit }) {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(56px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(62px, 1fr))',
             gap: 'var(--spacing-sm)',
             width: '100%',
           }}
@@ -90,7 +90,7 @@ export default function Forecast({ data, unit }) {
                   flexDirection: 'column',
                   alignItems: 'center',
                   gap: 'var(--spacing-xs)',
-                  padding: 'var(--spacing-sm)',
+                  padding: 'var(--spacing-sm) var(--spacing-xs)',
                   borderRadius: 'var(--card-radius-sm)',
                   background: isNow ? 'var(--glass-bg-hover)' : 'transparent',
                   border: isNow ? '1px solid var(--glass-border-hover)' : '1px solid transparent',
@@ -104,6 +104,8 @@ export default function Forecast({ data, unit }) {
                     fontSize: '0.75rem',
                     color: isNow ? 'var(--accent-cyan)' : 'var(--text-muted)',
                     fontWeight: isNow ? 600 : 400,
+                    whiteSpace: 'nowrap',
+                    lineHeight: 1.1,
                   }}
                 >
                   {isNow ? 'Now' : hourLabel}
