@@ -233,12 +233,17 @@ function App() {
 
         <div className="layout-columns">
           <section className="layout-col layout-col-main">
-            <CurrentWeather data={displayData} unit={unit} isManualLocation={!!manualLocation} />
+            <CurrentWeather
+              data={displayData}
+              unit={unit}
+              isManualLocation={!!manualLocation}
+              referenceTime={lastUpdated}
+            />
             <PrecipitationChart data={displayData} unit={unit} />
           </section>
 
           <section className="layout-col layout-col-side">
-            <Forecast data={displayData} unit={unit} />
+            <Forecast data={displayData} unit={unit} referenceTime={lastUpdated} />
             <div className="widgets-row">
               <SunriseSunset data={displayData} />
               <WindCompass data={displayData} unit={unit} />
