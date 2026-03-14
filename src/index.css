@@ -420,7 +420,7 @@ button:disabled {
   /* Nested columns avoid uneven grid row-height gaps */
   .layout-columns {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: var(--spacing-lg);
     align-items: start;
   }

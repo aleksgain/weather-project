@@ -31,7 +31,7 @@ export default function PrecipitationChart({ data, unit }) {
   const maxAmount = Math.max(0.1, ...amountValues);
 
   // SVG dimensions
-  const padding = { top: 20, right: 10, bottom: 26, left: 10 };
+  const padding = { top: 20, right: 10, bottom: 30, left: 10 };
   const yAxisWidth = 30;
   const chartStartX = padding.left + yAxisWidth;
   const viewW = 480;
@@ -41,12 +41,16 @@ export default function PrecipitationChart({ data, unit }) {
   const barWidth = chartW / barCount;
 
   const gridlines = [25, 50, 75];
-  const labelStep = Math.max(1, Math.ceil(barCount / 12));
+  const maxLabels = 6;
+  const labelStep = Math.max(1, Math.ceil(barCount / maxLabels));
   const formatHourlyLabel = (time) =>
     new Date(time).toLocaleTimeString(undefined, {
       hour: 'numeric',
-      minute: '2-digit',
     });
+  const chartContainerStyle = {
+    width: '100%',
+    overflow: 'hidden',
+  };
   const clearInteraction = () => {
     setActiveChanceBar(null);
     setActiveAmountBar(null);
@@ -92,14 +96,15 @@ export default function PrecipitationChart({ data, unit }) {
             <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>
               Chance (%)
             </div>
-            <svg
-              viewBox={`0 0 ${viewW} ${viewH}`}
-              style={{ width: '100%', height: 'auto', display: 'block' }}
-              role="img"
-              aria-label={`Hourly precipitation chance from now for next ${hours.length} hours`}
-              onMouseLeave={() => setActiveChanceBar(null)}
-              onTouchEnd={() => setActiveChanceBar(null)}
-            >
+            <div style={chartContainerStyle}>
+              <svg
+                viewBox={`0 0 ${viewW} ${viewH}`}
+                style={{ width: '100%', height: 'auto', display: 'block' }}
+                role="img"
+                aria-label={`Hourly precipitation chance from now for next ${hours.length} hours`}
+                onMouseLeave={() => setActiveChanceBar(null)}
+                onTouchEnd={() => setActiveChanceBar(null)}
+              >
               <defs>
                 <linearGradient id="precip-prob-gradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="var(--accent-blue)" />
@@ -173,21 +178,23 @@ export default function PrecipitationChart({ data, unit }) {
                   </text>
                 );
               })}
-            </svg>
+              </svg>
+            </div>
           </div>
 
           <div>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>
               Amount ({precipUnit})
             </div>
-            <svg
-              viewBox={`0 0 ${viewW} ${viewH}`}
-              style={{ width: '100%', height: 'auto', display: 'block' }}
-              role="img"
-              aria-label={`Hourly precipitation amount from now for next ${hours.length} hours`}
-              onMouseLeave={() => setActiveAmountBar(null)}
-              onTouchEnd={() => setActiveAmountBar(null)}
-            >
+            <div style={chartContainerStyle}>
+              <svg
+                viewBox={`0 0 ${viewW} ${viewH}`}
+                style={{ width: '100%', height: 'auto', display: 'block' }}
+                role="img"
+                aria-label={`Hourly precipitation amount from now for next ${hours.length} hours`}
+                onMouseLeave={() => setActiveAmountBar(null)}
+                onTouchEnd={() => setActiveAmountBar(null)}
+              >
               <defs>
                 <linearGradient id="precip-amount-gradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="var(--accent-cyan)" />
@@ -262,7 +269,8 @@ export default function PrecipitationChart({ data, unit }) {
                   </text>
                 );
               })}
-            </svg>
+              </svg>
+            </div>
           </div>
 
           <div
