@@ -3,7 +3,6 @@ name: Docker Publish
 on:
   push:
     branches:
-      - main
       - master
     tags:
       - 'v*'
@@ -66,8 +65,8 @@ jobs:
         with:
           generate_release_notes: true
 
-  create-main-release:
-    if: github.ref == 'refs/heads/main'
+  create-master-release:
+    if: github.ref == 'refs/heads/master'
     needs:
       - build-and-push
     runs-on: ubuntu-latest
@@ -78,10 +77,10 @@ jobs:
       - name: Generate release metadata
         id: meta
         run: |
-          echo "tag=main-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
-          echo "name=Main build #${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_OUTPUT"
+          echo "tag=master-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          echo "name=Master build #${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_OUTPUT"
 
-      - name: Create GitHub Release (main)
+      - name: Create GitHub Release (master)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.meta.outputs.tag }}

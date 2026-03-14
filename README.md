@@ -92,28 +92,6 @@ DEFAULT_LOCATION_NAME=London
 
 Then run `npm run dev`.
 
-## Theme Modes
-
-Use the theme toggle in the header to cycle between:
-
-- `System` (follows OS/browser preference)
-- `Dark`
-- `Light`
-
-Your selected mode is saved in local storage and restored on your next visit.
-
-## Releases
-
-Release automation is driven by GitHub Actions:
-
-- Push a semantic version tag (for example `v1.2.3`) to create a full release
-- Push to `main` to create a prerelease snapshot
-
-Each release includes:
-
-- Docker image publish to `ghcr.io`
-- Auto-generated release notes
-
 ## Unraid Template
 
 This repo includes a Community Applications template: `unraid-template.xml`.
@@ -122,7 +100,7 @@ This repo includes a Community Applications template: `unraid-template.xml`.
 
 1. In Unraid, open **Apps**.
 2. Add your template repository URL:
-   - `https://raw.githubusercontent.com/aleksgain/weather-project/main/unraid-template.xml`
+   - `https://raw.githubusercontent.com/aleksgain/weather-project/master/unraid-template.xml`
 3. Search for **Weather App** and install.
 4. Set API keys and fallback location values in the container template (optional).
 
