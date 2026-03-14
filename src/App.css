@@ -140,6 +140,26 @@
   flex-wrap: wrap;
 }
 
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  min-height: 44px;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--card-radius-sm);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.theme-toggle:hover {
+  color: var(--text-primary);
+}
+
 .refresh-button {
   display: flex;
   align-items: center;
