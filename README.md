@@ -9,6 +9,7 @@ A weather app focused on source aggregation and confidence scoring. It combines 
 - 📍 Automatic geolocation with fallback to default location
 - 🌡️ Toggle between Celsius and Fahrenheit
 - 🌓 Theme switcher with `System`, `Dark`, and `Light` modes
+- 📲 Installable as a mobile/desktop web app (PWA)
 - 📱 Responsive design (mobile, tablet, desktop)
 - ♿ Accessible (ARIA labels, keyboard navigation)
 - 🎨 Aurora-inspired UI across dark and light themes
@@ -50,6 +51,19 @@ docker compose up --build
 ```
 
 Open http://localhost:8080
+
+## Install as App (PWA)
+
+When deployed over HTTPS, modern browsers can install this app to the home screen/app launcher.
+
+- **Android/Chrome/Edge**: use browser menu -> `Install app` / `Add to Home screen`
+- **iOS/Safari**: use Share -> `Add to Home Screen`
+
+PWA support in this repo includes:
+
+- Web app manifest
+- Service worker registration (auto-updating)
+- App icons for install surfaces
 
 ## Configuration
 
