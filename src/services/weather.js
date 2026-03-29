@@ -23,12 +23,18 @@ import { aggregateWeatherData } from './aggregator';
  * @property {Array<Object>} daily - Array of daily forecast objects
  */
 
-// Simple in-memory cache
+/** Max age before refetching (persisted + in-memory); aligns with background refresh interval */
+export const WEATHER_UI_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
+
+const UI_CACHE_STORAGE_KEY = 'weatherUiBundle';
+const UI_CACHE_VERSION = 1;
+
+// Simple in-memory cache (session); hydrated from localStorage on cold start
 const cache = {
     data: null,
     timestamp: null,
     location: null,
-    CACHE_DURATION: 10 * 60 * 1000, // 10 minutes
+    CACHE_DURATION: WEATHER_UI_CACHE_MAX_AGE_MS,
 };
 
 /**
@@ -69,7 +75,7 @@ function getCachedData(lat, lon) {
         return null;
     }
 
-    const isExpired = Date.now() - cache.timestamp > cache.CACHE_DURATION;
+    const isExpired = Date.now() - cache.timestamp >= cache.CACHE_DURATION;
     const isSameLocation =
         Math.abs(cache.location.lat - lat) < 0.01 &&
         Math.abs(cache.location.lon - lon) < 0.01;
@@ -90,13 +96,86 @@ function setCachedData(data, lat, lon) {
     cache.location = { lat, lon };
 }
 
-/**
- * Clear the weather data cache
- */
-export function clearCache() {
+/** Drop in-memory cache only (user refresh: force network without wiping cold-start snapshot). */
+export function clearMemoryCache() {
     cache.data = null;
     cache.timestamp = null;
     cache.location = null;
+}
+
+/**
+ * Clear in-memory and persisted UI cache (e.g. location change).
+ */
+export function clearCache() {
+    clearMemoryCache();
+    try {
+        localStorage.removeItem(UI_CACHE_STORAGE_KEY);
+    } catch {
+        // ignore
+    }
+}
+
+/**
+ * Restore in-memory cache from a persisted snapshot timestamp (for TTL correctness).
+ * @param {WeatherData} data
+ * @param {number} lat
+ * @param {number} lon
+ * @param {number} fetchedAt - epoch ms when snapshot was written
+ */
+export function hydrateMemoryCacheFromSnapshot(data, lat, lon, fetchedAt) {
+    const coords = validateCoordinates(lat, lon);
+    cache.data = data;
+    cache.timestamp = fetchedAt;
+    cache.location = { lat: coords.lat, lon: coords.lon };
+}
+
+/**
+ * @returns {{ data: WeatherData, alerts: unknown[], fetchedAt: number } | null}
+ */
+export function readPersistedUiBundle(lat, lon) {
+    try {
+        const coords = validateCoordinates(lat, lon);
+        const raw = localStorage.getItem(UI_CACHE_STORAGE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (parsed?.v !== UI_CACHE_VERSION || !parsed?.data || typeof parsed.fetchedAt !== 'number') {
+            return null;
+        }
+        const sameLocation =
+            Math.abs(parsed.lat - coords.lat) < 0.01 && Math.abs(parsed.lon - coords.lon) < 0.01;
+        if (!sameLocation) return null;
+        const alerts = Array.isArray(parsed.alerts) ? parsed.alerts : [];
+        return { data: parsed.data, alerts, fetchedAt: parsed.fetchedAt };
+    } catch {
+        try {
+            localStorage.removeItem(UI_CACHE_STORAGE_KEY);
+        } catch {
+            // ignore
+        }
+        return null;
+    }
+}
+
+/**
+ * @param {WeatherData} data
+ * @param {unknown[]} alerts
+ * @param {number} fetchedAt - epoch ms
+ */
+export function writePersistedUiBundle(lat, lon, data, alerts, fetchedAt) {
+    try {
+        const coords = validateCoordinates(lat, lon);
+        const payload = {
+            v: UI_CACHE_VERSION,
+            lat: coords.lat,
+            lon: coords.lon,
+            data,
+            alerts,
+            fetchedAt,
+        };
+        localStorage.setItem(UI_CACHE_STORAGE_KEY, JSON.stringify(payload));
+    } catch {
+        // quota / private mode — ignore
+    }
 }
 
 /**
