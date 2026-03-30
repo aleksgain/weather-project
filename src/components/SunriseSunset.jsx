@@ -12,13 +12,45 @@ function formatDayLength(hours) {
   return `${h}h ${m}m`;
 }
 
+function parseSunInstant(value) {
+  if (value == null) return null;
+  const d = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 export default function SunriseSunset({ data }) {
   const lat = data?.location?.lat ?? data?.lat;
   const lon = data?.location?.lon ?? data?.lon;
   if (lat == null || lon == null) return null;
   const now = new Date();
-  const { sunrise, sunset, polarDay, polarNight } = getSunriseSunset(now, lat, lon);
-  const dayLength = getDayLength(now, lat, lon);
+
+  const apiSunrise = parseSunInstant(data?.current?.sunrise);
+  const apiSunset = parseSunInstant(data?.current?.sunset);
+
+  let sunrise;
+  let sunset;
+  let polarDay;
+  let polarNight;
+  let dayLength;
+
+  if (
+    apiSunrise &&
+    apiSunset &&
+    apiSunset.getTime() > apiSunrise.getTime()
+  ) {
+    sunrise = apiSunrise;
+    sunset = apiSunset;
+    polarDay = false;
+    polarNight = false;
+    dayLength = (sunset.getTime() - sunrise.getTime()) / (1000 * 60 * 60);
+  } else {
+    const astro = getSunriseSunset(now, lat, lon);
+    sunrise = astro.sunrise;
+    sunset = astro.sunset;
+    polarDay = !!astro.polarDay;
+    polarNight = !!astro.polarNight;
+    dayLength = getDayLength(now, lat, lon);
+  }
 
   // Calculate sun progress along arc (0 = sunrise, 1 = sunset)
   let progress = 0;
