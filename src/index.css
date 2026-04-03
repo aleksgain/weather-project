@@ -433,6 +433,14 @@ button:disabled {
   border: 0;
 }
 
+/* Mobile: consistent card spacing */
+.layout-columns,
+.layout-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
 /* Tablet / Desktop Grid Layout */
 @media (min-width: 768px) {
   #root {
