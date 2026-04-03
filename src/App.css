@@ -397,28 +397,33 @@
   margin-top: var(--spacing-xs);
 }
 
-/* Precipitation chart */
-.precipitation-chart {
+/* Precipitation bar items */
+.precip-bar-track {
   width: 100%;
-  position: relative;
+  height: 60px;
+  background: var(--glass-bg);
+  border-radius: 4px;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
 }
 
-.precipitation-chart-container {
+.precip-bar-track--sm {
+  height: 36px;
+}
+
+.precip-bar-fill {
   width: 100%;
-  height: 200px;
-  min-height: 150px;
+  border-radius: 4px 4px 0 0;
+  transition: height 0.3s ease;
 }
 
-@media (min-width: 768px) {
-  .precipitation-chart-container {
-    height: 250px;
-  }
+.precip-bar-fill--chance {
+  background: linear-gradient(to top, var(--accent-blue), var(--accent-cyan));
 }
 
-@media (min-width: 1200px) {
-  .precipitation-chart-container {
-    height: 300px;
-  }
+.precip-bar-fill--amount {
+  background: linear-gradient(to top, var(--accent-cyan), var(--accent-blue));
 }
 
 /* Expanded metric grid */
@@ -443,6 +448,7 @@
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
   scrollbar-color: var(--glass-border) transparent;
+  scroll-snap-type: x mandatory;
 }
 
 .hourly-scroll::-webkit-scrollbar {
@@ -459,9 +465,18 @@
 }
 
 .hourly-scroll-item {
-  flex: 0 0 auto;
-  min-width: 72px;
+  flex-shrink: 0;
+  width: calc((100% - 4 * var(--spacing-sm)) / 5);
+  max-width: 72px;
   min-height: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-xs);
+  border-radius: var(--card-radius-sm);
+  transition: all 0.2s ease;
+  scroll-snap-align: start;
 }
 
 /* Footer */

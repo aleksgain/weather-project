@@ -42,7 +42,7 @@ export default function Forecast({ data, unit, referenceTime }) {
     firstRelevantIndex === -1
       ? normalizedHourly
       : normalizedHourly.slice(firstRelevantIndex)
-  ).slice(0, 12);
+  ).slice(0, 24);
   const formatHourlyLabel = (time) =>
     new Date(time).toLocaleTimeString(undefined, {
       hour: 'numeric',
@@ -108,12 +108,7 @@ export default function Forecast({ data, unit, referenceTime }) {
           Hourly Forecast
         </h3>
         <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(62px, 1fr))',
-            gap: 'var(--spacing-sm)',
-            width: '100%',
-          }}
+          className="hourly-scroll"
           role="list"
           aria-label="Hourly weather forecast"
         >
@@ -128,16 +123,10 @@ export default function Forecast({ data, unit, referenceTime }) {
             return (
               <div
                 key={hour.time ?? `hour-${index}`}
+                className="hourly-scroll-item"
                 style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 'var(--spacing-xs)',
-                  padding: 'var(--spacing-sm) var(--spacing-xs)',
-                  borderRadius: 'var(--card-radius-sm)',
                   background: isNow ? 'var(--glass-bg-hover)' : 'transparent',
                   border: isNow ? '1px solid var(--glass-border-hover)' : '1px solid transparent',
-                  transition: 'all 0.2s ease',
                 }}
                 role="listitem"
                 aria-label={`${isNow ? 'Now' : hourLabel}: ${formatTemp(hour.temp, unit)} degrees, ${hour.condition}`}
