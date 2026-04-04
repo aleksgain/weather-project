@@ -309,6 +309,20 @@ function aggregateCurrent(datasets, weights) {
 }
 
 /**
+ * Normalize an hourly timestamp to a consistent key for merging.
+ * Different APIs return the same hour in different formats
+ * (e.g. "2024-01-15T10:00" vs "2024-01-15T10:00:00-05:00"),
+ * so we parse to epoch and round to the nearest hour.
+ * @param {string} timeStr
+ * @returns {string} UTC ISO string rounded to the hour, or the original string as fallback
+ */
+function normalizeHourKey(timeStr) {
+    const ms = new Date(timeStr).getTime();
+    if (Number.isNaN(ms)) return timeStr;
+    return new Date(Math.round(ms / 3600000) * 3600000).toISOString();
+}
+
+/**
  * Merge hourly arrays by matching timestamps
  * @param {Array<Object>} datasets
  * @param {Array<number>} weights
@@ -322,8 +336,8 @@ function mergeHourly(datasets, weights) {
         if (!Array.isArray(hourly)) continue;
 
         for (const entry of hourly) {
-            const key = entry.time;
-            if (!key) continue;
+            if (!entry.time) continue;
+            const key = normalizeHourKey(entry.time);
             if (!byTime.has(key)) byTime.set(key, []);
             byTime.get(key).push({ entry, weight: weights[i] });
         }
