@@ -47,6 +47,7 @@ export default function Forecast({ data, unit, referenceTime }) {
     new Date(time).toLocaleTimeString(undefined, {
       hour: 'numeric',
       minute: '2-digit',
+      hour12: unit === 'imperial',
     });
 
   const getDayKey = (value) => {

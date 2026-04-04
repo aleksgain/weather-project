@@ -1,9 +1,9 @@
 import { Sunrise, Sunset } from 'lucide-react';
 import { getSunriseSunset, getDayLength } from '../utils/astronomy';
 
-function formatTime(date) {
+function formatTime(date, unit) {
   if (!date) return '--:--';
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: unit === 'imperial' });
 }
 
 function formatDayLength(hours) {
@@ -18,7 +18,7 @@ function parseSunInstant(value) {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-export default function SunriseSunset({ data }) {
+export default function SunriseSunset({ data, unit }) {
   const lat = data?.location?.lat ?? data?.lat;
   const lon = data?.location?.lon ?? data?.lon;
   if (lat == null || lon == null) return null;
@@ -95,7 +95,7 @@ export default function SunriseSunset({ data }) {
     <article
       className="glass-panel"
       style={{ padding: 'var(--spacing-lg)' }}
-      aria-label={`Sunrise at ${formatTime(sunrise)}, sunset at ${formatTime(sunset)}, day length ${formatDayLength(dayLength)}`}
+      aria-label={`Sunrise at ${formatTime(sunrise, unit)}, sunset at ${formatTime(sunset, unit)}, day length ${formatDayLength(dayLength)}`}
     >
       <div
         style={{
@@ -177,7 +177,7 @@ export default function SunriseSunset({ data }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
           <Sunrise size={16} style={{ color: 'var(--accent-orange)' }} aria-hidden="true" />
           <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-            {formatTime(sunrise)}
+            {formatTime(sunrise, unit)}
           </span>
         </div>
 
@@ -188,7 +188,7 @@ export default function SunriseSunset({ data }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
           <Sunset size={16} style={{ color: 'var(--accent-blue)' }} aria-hidden="true" />
           <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-            {formatTime(sunset)}
+            {formatTime(sunset, unit)}
           </span>
         </div>
       </div>
