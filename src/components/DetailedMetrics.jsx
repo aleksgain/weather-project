@@ -143,11 +143,11 @@ function getAQIColor(aqi) {
   return 'var(--accent-red)';
 }
 
-function formatTime(timestamp) {
+function formatTime(timestamp, unit) {
   if (timestamp == null) return '--:--';
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) return '--:--';
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: unit === 'imperial' });
 }
 
 function formatPressure(hPa, unit) {
@@ -177,13 +177,13 @@ export default function DetailedMetrics({ data, unit }) {
 
   let sunCardTitle = 'Sunrise';
   let sunCardValue = sunrise;
-  let sunCardDescription = sunset ? `Sunset ${formatTime(sunset)}` : '';
+  let sunCardDescription = sunset ? `Sunset ${formatTime(sunset, unit)}` : '';
 
   if (sunriseTime && sunsetTime && !Number.isNaN(sunriseTime.getTime()) && !Number.isNaN(sunsetTime.getTime())) {
     if (now >= sunriseTime && now < sunsetTime) {
       sunCardTitle = 'Sunset';
       sunCardValue = sunset;
-      sunCardDescription = `Sunrise ${formatTime(sunrise)}`;
+      sunCardDescription = `Sunrise ${formatTime(sunrise, unit)}`;
     }
   }
 
@@ -277,7 +277,7 @@ export default function DetailedMetrics({ data, unit }) {
       />
       <MetricCard
         title={sunCardTitle}
-        value={formatTime(sunCardValue)}
+        value={formatTime(sunCardValue, unit)}
         unitLabel=""
         description={sunCardDescription}
         Icon={sunCardTitle === 'Sunset' ? Sunset : Sunrise}

@@ -245,7 +245,7 @@ function App() {
           <section className="layout-col layout-col-side">
             <Forecast data={displayData} unit={unit} referenceTime={lastUpdated} />
             <div className="widgets-row">
-              <SunriseSunset data={displayData} />
+              <SunriseSunset data={displayData} unit={unit} />
               <WindCompass data={displayData} unit={unit} />
             </div>
           </section>

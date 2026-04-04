@@ -26,7 +26,7 @@ export default function PrecipitationChart({ data, unit }) {
   const maxAmount = Math.max(0.1, ...amountValues);
 
   const formatHourlyLabel = (time) =>
-    new Date(time).toLocaleTimeString(undefined, { hour: 'numeric' });
+    new Date(time).toLocaleTimeString(undefined, { hour: 'numeric', hour12: unit === 'imperial' });
 
   return (
     <section
@@ -129,7 +129,7 @@ export default function PrecipitationChart({ data, unit }) {
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  {amount > 0 ? `${amount}${precipUnit}` : prob > 0 ? 'None' : `0${precipUnit}`}
+                  {amount > 0 ? `${amount}${precipUnit}` : prob > 0 ? `0${precipUnit}` : `0${precipUnit}`}
                 </span>
               </div>
             );
