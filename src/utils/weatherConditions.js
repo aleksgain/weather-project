@@ -162,6 +162,60 @@ export function mapNwsCondition(text) {
     return UnifiedCondition.UNKNOWN;
 }
 
+
+/**
+ * Maps MET Norway symbol codes (e.g. "partlycloudy_day", "heavyrain") to unified conditions.
+ * Symbol codes optionally include a `_day` / `_night` / `_polartwilight` suffix which we strip.
+ * @param {string} code - MET Norway symbol_code
+ * @returns {string} Unified condition string
+ */
+export function mapMetNoSymbol(code) {
+    if (!code || typeof code !== 'string') return UnifiedCondition.UNKNOWN;
+    const base = code.toLowerCase().replace(/_(day|night|polartwilight)$/, '');
+
+    if (base.includes('thunder')) return UnifiedCondition.THUNDERSTORM;
+    if (base.includes('sleet')) return UnifiedCondition.SLEET;
+    if (base.includes('heavysnow')) return UnifiedCondition.HEAVY_SNOW;
+    if (base.includes('snow')) return UnifiedCondition.SNOW;
+    if (base.includes('heavyrain')) return UnifiedCondition.HEAVY_RAIN;
+    if (base.includes('lightrain') || base.includes('rainshowers') || base.includes('rain')) {
+        return UnifiedCondition.RAIN;
+    }
+    if (base.includes('drizzle')) return UnifiedCondition.DRIZZLE;
+    if (base.includes('fog')) return UnifiedCondition.FOG;
+    if (base.includes('partlycloudy')) return UnifiedCondition.PARTLY_CLOUDY;
+    if (base.includes('cloudy')) return UnifiedCondition.CLOUDY;
+    if (base.includes('fair')) return UnifiedCondition.PARTLY_CLOUDY;
+    if (base.includes('clearsky')) return UnifiedCondition.CLEAR;
+
+    return UnifiedCondition.UNKNOWN;
+}
+
+/**
+ * Maps Pirate Weather / Dark Sky icon strings to unified conditions.
+ * Possible values: clear-day, clear-night, rain, snow, sleet, wind, fog,
+ * cloudy, partly-cloudy-day, partly-cloudy-night, hail, thunderstorm.
+ * @param {string} icon - Pirate Weather icon string
+ * @returns {string} Unified condition string
+ */
+export function mapPirateWeatherIcon(icon) {
+    if (!icon || typeof icon !== 'string') return UnifiedCondition.UNKNOWN;
+    const lower = icon.toLowerCase();
+
+    if (lower.includes('thunder')) return UnifiedCondition.THUNDERSTORM;
+    if (lower.includes('hail')) return UnifiedCondition.HAIL;
+    if (lower.includes('sleet')) return UnifiedCondition.SLEET;
+    if (lower.includes('snow')) return UnifiedCondition.SNOW;
+    if (lower.includes('rain')) return UnifiedCondition.RAIN;
+    if (lower.includes('fog')) return UnifiedCondition.FOG;
+    if (lower.includes('partly-cloudy')) return UnifiedCondition.PARTLY_CLOUDY;
+    if (lower.includes('cloudy')) return UnifiedCondition.CLOUDY;
+    if (lower.includes('clear')) return UnifiedCondition.CLEAR;
+    if (lower === 'wind') return UnifiedCondition.CLEAR;
+
+    return UnifiedCondition.UNKNOWN;
+}
+
 /**
  * Returns the broad category for a unified condition.
  * @param {string} condition - A unified condition string

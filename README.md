@@ -78,7 +78,10 @@ The app supports multiple weather API sources. Configure them via environment va
 | `OPENWEATHER_API_KEY` | - | OpenWeatherMap API key |
 | `WEATHERAPI_ENABLED` | `false` | Enable WeatherAPI |
 | `WEATHERAPI_KEY` | - | WeatherAPI key |
-| `NWS_ENABLED` | `false` | Enable National Weather Service (US only) |
+| `NWS_ENABLED` | `true` | Enable National Weather Service (free, no key, US only) |
+| `METNORWAY_ENABLED` | `true` | Enable MET Norway (free, no key, global, CC BY 4.0) |
+| `PIRATEWEATHER_ENABLED` | `false` | Enable Pirate Weather (Dark Sky-compatible) |
+| `PIRATEWEATHER_API_KEY` | - | Pirate Weather API key |
 | `SHOW_SOURCES` | `false` | Show debug badge with contributing weather sources |
 | `DEFAULT_LAT` | `40.7128` | Default latitude |
 | `DEFAULT_LON` | `-74.0060` | Default longitude |
@@ -151,6 +154,18 @@ The app's primary value is blending these providers into a single forecast and s
 - **Free**: No API key required
 - **Coverage**: US only (`api.weather.gov`)
 - **Features**: Forecasts and active weather alerts
+
+### MET Norway
+- **Free**: No API key required (CC BY 4.0 — commercial use allowed)
+- **Coverage**: Global (`api.met.no`)
+- **Features**: Hourly forecasts up to 10 days, independent Nordic-tuned model
+- **Notes**: Requires a descriptive User-Agent per their [terms of service](https://api.met.no/doc/TermsOfService)
+
+### Pirate Weather
+- **Free tier**: 20,000 calls/month
+- **Sign up**: https://pirate-weather.apiable.io/
+- **Coverage**: Global (powered by NOAA GFS/HRRR/NBM)
+- **Features**: Dark Sky-compatible JSON schema, hourly + daily forecasts, alerts
 
 ## Tech Stack
 

@@ -61,9 +61,27 @@ export const weatherSources = {
   nws: {
     id: 'nws',
     name: 'National Weather Service',
-    enabled: parseBool(getEnvVar('NWS_ENABLED'), false),
+    // Free, no API key, US only. Enabled by default — non-US coords fall back gracefully.
+    enabled: parseBool(getEnvVar('NWS_ENABLED'), true),
     needsKey: false,
     baseUrl: 'https://api.weather.gov',
+  },
+  metNorway: {
+    id: 'metNorway',
+    name: 'MET Norway',
+    // Free, no API key, CC BY 4.0 license. Enabled by default.
+    enabled: parseBool(getEnvVar('METNORWAY_ENABLED'), true),
+    needsKey: false,
+    baseUrl: 'https://api.met.no/weatherapi/locationforecast/2.0',
+  },
+  pirateWeather: {
+    id: 'pirateWeather',
+    name: 'Pirate Weather',
+    // 20K calls/month free with registration. Off by default until a key is set.
+    enabled: parseBool(getEnvVar('PIRATEWEATHER_ENABLED'), false),
+    needsKey: true,
+    key: getEnvVar('PIRATEWEATHER_API_KEY', ''),
+    baseUrl: 'https://api.pirateweather.net/forecast',
   },
 };
 

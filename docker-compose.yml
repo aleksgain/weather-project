@@ -23,6 +23,13 @@ services:
       # NWS - National Weather Service (free, no API key, US only)
       - NWS_ENABLED=true
 
+      # MET Norway (free, no API key, CC BY 4.0 — commercial use allowed)
+      - METNORWAY_ENABLED=true
+
+      # Pirate Weather (requires free API key from https://pirate-weather.apiable.io/ — 20K calls/month)
+      - PIRATEWEATHER_ENABLED=false
+      - PIRATEWEATHER_API_KEY=${PIRATEWEATHER_API_KEY:-}
+
       # Mock data (for testing without API calls)
       - MOCK_ENABLED=false
       
