@@ -40,5 +40,5 @@ export default defineConfig({
     }),
   ],
   // Expose these env vars to the client (no VITE_ prefix needed)
-  envPrefix: ['VITE_', 'OPENMETEO', 'OPENWEATHER', 'WEATHERAPI', 'NWS', 'DEFAULT', 'SHOW'],
+  envPrefix: ['VITE_', 'OPENMETEO', 'OPENWEATHER', 'WEATHERAPI', 'NWS', 'METNORWAY', 'PIRATEWEATHER', 'DEFAULT', 'SHOW'],
 })

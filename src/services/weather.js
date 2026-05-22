@@ -3,6 +3,8 @@ import { fetchOpenMeteoData } from './apis/openMeteo';
 import { fetchOpenWeatherMapData } from './apis/openWeatherMap';
 import { fetchWeatherApiData } from './apis/weatherApi';
 import { fetchNwsData, fetchNwsAlerts } from './apis/nws';
+import { fetchMetNorwayData } from './apis/metNorway';
+import { fetchPirateWeatherData } from './apis/pirateWeather';
 import { aggregateWeatherData } from './aggregator';
 
 // Standardized Weather Data Interface (JSDoc)
@@ -231,6 +233,12 @@ export async function fetchWeatherData(lat, lon, forceRefresh = false) {
                 if (isUSCoordinates(coords.lat, coords.lon)) {
                     promises.push(fetchNwsData(coords.lat, coords.lon));
                 }
+                break;
+            case 'metNorway':
+                promises.push(fetchMetNorwayData(coords.lat, coords.lon));
+                break;
+            case 'pirateWeather':
+                promises.push(fetchPirateWeatherData(coords.lat, coords.lon, source.key));
                 break;
             default:
                 break;

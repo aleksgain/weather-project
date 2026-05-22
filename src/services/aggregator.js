@@ -12,6 +12,8 @@ const SOURCE_WEIGHTS = {
     weatherapi: 0.85, // legacy alias
     weatherApi: 0.85,
     nws: 1.1,
+    metNorway: 1.05, // Norwegian Met Institute — strong independent model
+    pirateWeather: 0.95, // NOAA-backed (GFS/HRRR/NBM)
 };
 
 /** Numeric fields to aggregate on current weather */
