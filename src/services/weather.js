@@ -209,9 +209,11 @@ export async function fetchWeatherData(lat, lon, forceRefresh = false) {
         }
     }
 
-    const promises = [];
+    // Build fetch tasks dynamically from weather sources config.
+    // We track the source ID alongside each promise so we can attribute
+    // failures back to a specific source when logging.
+    const tasks = [];
 
-    // Build fetch promises dynamically from weather sources config
     for (const source of Object.values(weatherSources)) {
         if (!source.enabled) continue;
 
@@ -220,36 +222,46 @@ export async function fetchWeatherData(lat, lon, forceRefresh = false) {
 
         switch (source.id) {
             case 'openMeteo':
-                promises.push(fetchOpenMeteoData(coords.lat, coords.lon));
+                tasks.push({ id: 'openMeteo', promise: fetchOpenMeteoData(coords.lat, coords.lon) });
                 break;
             case 'openWeatherMap':
-                promises.push(fetchOpenWeatherMapData(coords.lat, coords.lon, source.key));
+                tasks.push({ id: 'openWeatherMap', promise: fetchOpenWeatherMapData(coords.lat, coords.lon, source.key) });
                 break;
             case 'weatherApi':
-                promises.push(fetchWeatherApiData(coords.lat, coords.lon, source.key));
+                tasks.push({ id: 'weatherApi', promise: fetchWeatherApiData(coords.lat, coords.lon, source.key) });
                 break;
             case 'nws':
                 // NWS only works for US coordinates
                 if (isUSCoordinates(coords.lat, coords.lon)) {
-                    promises.push(fetchNwsData(coords.lat, coords.lon));
+                    tasks.push({ id: 'nws', promise: fetchNwsData(coords.lat, coords.lon) });
                 }
                 break;
             case 'metNorway':
-                promises.push(fetchMetNorwayData(coords.lat, coords.lon));
+                tasks.push({ id: 'metNorway', promise: fetchMetNorwayData(coords.lat, coords.lon) });
                 break;
             case 'pirateWeather':
-                promises.push(fetchPirateWeatherData(coords.lat, coords.lon, source.key));
+                tasks.push({ id: 'pirateWeather', promise: fetchPirateWeatherData(coords.lat, coords.lon, source.key) });
                 break;
             default:
                 break;
         }
     }
 
-    if (promises.length === 0) {
+    if (tasks.length === 0) {
         throw new Error('No weather sources are enabled or available');
     }
 
-    const results = await Promise.allSettled(promises);
+    const results = await Promise.allSettled(tasks.map(t => t.promise));
+
+    // Log per-source failures so missing sources in the UI are diagnosable
+    // (otherwise Promise.allSettled silently drops them).
+    for (let i = 0; i < results.length; i++) {
+        const r = results[i];
+        if (r.status === 'rejected') {
+            console.warn(`[weather] ${tasks[i].id} failed:`, r.reason?.message || r.reason);
+        }
+    }
+
     const successfulData = results
         .filter(r => r.status === 'fulfilled')
         .map(r => r.value)
@@ -257,17 +269,18 @@ export async function fetchWeatherData(lat, lon, forceRefresh = false) {
 
     if (successfulData.length === 0) {
         const errors = results
-            .filter(r => r.status === 'rejected')
-            .map(r => r.reason?.message || 'Unknown error');
+            .map((r, i) => r.status === 'rejected'
+                ? `${tasks[i].id}: ${r.reason?.message || 'Unknown error'}`
+                : null)
+            .filter(Boolean);
         if (errors.length > 0) {
-            throw new Error(`No weather data available: ${errors.join(', ')}`);
+            throw new Error(`No weather data available: ${errors.join('; ')}`);
         }
         throw new Error('No weather data available for this location from enabled sources');
     }
 
     const aggregated = aggregateWeatherData(successfulData);
 
-    // Cache the result
     setCachedData(aggregated, coords.lat, coords.lon);
 
     return aggregated;
