@@ -22,7 +22,7 @@ window.__WEATHER_CONFIG__ = {
 
   // Default Location (used when geolocation is denied)
   DEFAULT_LAT: "${DEFAULT_LAT:-40.7128}",
-  DEFAULT_LON: "${DEFAULT_LON:-74.0060}",
+  DEFAULT_LON: "${DEFAULT_LON:--74.0060}",
   DEFAULT_LOCATION_NAME: "${DEFAULT_LOCATION_NAME:-New York}"
 };
 console.log('[Weather App] Runtime config loaded');

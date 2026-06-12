@@ -23,6 +23,8 @@ export function useWeatherData(location) {
   const [lastUpdated, setLastUpdated] = useState(null);
   /** True once we can show a non-error screen (network or persisted). */
   const hasDisplayableDataRef = useRef(false);
+  /** Monotonic id to discard responses from superseded requests. */
+  const requestIdRef = useRef(0);
   const [unit, setUnit] = useState(() => {
     const saved = localStorage.getItem('weatherUnit');
     return saved === 'imperial' ? 'imperial' : 'metric';
@@ -45,6 +47,8 @@ export function useWeatherData(location) {
       setLoading(false);
       return;
     }
+
+    const requestId = ++requestIdRef.current;
 
     try {
       if (forceRefresh) {
@@ -88,6 +92,9 @@ export function useWeatherData(location) {
         fetchAlerts(latitude, longitude).catch(() => []),
       ]);
 
+      // A newer request (e.g. location change) superseded this one — drop it.
+      if (requestId !== requestIdRef.current) return;
+
       const now = Date.now();
       setWeatherData(data);
       setAlerts(alertsData);
@@ -95,12 +102,14 @@ export function useWeatherData(location) {
       hasDisplayableDataRef.current = true;
       writePersistedUiBundle(latitude, longitude, data, alertsData, now);
     } catch (err) {
-      if (!hasDisplayableDataRef.current) {
+      if (requestId === requestIdRef.current && !hasDisplayableDataRef.current) {
         setError(err.message || 'Failed to load weather data');
       }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, [latitude, longitude]);
 

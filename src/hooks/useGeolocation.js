@@ -72,14 +72,14 @@ export function useGeolocation() {
         let position;
         try {
           position = await getCurrentPosition({
-            timeout: 12000,
+            timeout: 6000,
             maximumAge: 0,
             enableHighAccuracy: true,
           });
         } catch {
           // Fallback to a faster, potentially cached estimate.
           position = await getCurrentPosition({
-            timeout: 8000,
+            timeout: 4000,
             maximumAge: 300000,
             enableHighAccuracy: false,
           });
