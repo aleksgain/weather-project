@@ -104,6 +104,15 @@ docker run -p 8080:80 \
 docker compose up
 ```
 
+### Security Note: API Keys
+
+This is a fully client-side app — any API keys you configure are delivered to the
+browser (via `config.js` or the build) and are visible to anyone who can load the
+page. Only use keys from free tiers you are comfortable exposing, restrict them by
+referrer/domain where the provider supports it, and never reuse keys that grant
+access to paid quotas or other services. For untrusted audiences, proxy API calls
+through your own backend instead.
+
 ### Local Development with Environment Variables
 
 Create a `.env` file in the project root:

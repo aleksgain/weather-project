@@ -1,6 +1,6 @@
 import { UnifiedCondition } from '../../utils/weatherConditions.js';
 
-const NWS_USER_AGENT = '(WeatherApp, contact@example.com)';
+const NWS_USER_AGENT = '(weather-project, https://github.com/aleksgain/weather-project)';
 const REQUEST_TIMEOUT = 10000;
 
 /**

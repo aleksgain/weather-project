@@ -1,11 +1,13 @@
 import { CloudRain } from 'lucide-react';
 import { mmToInches } from '../utils/unitConversion';
 
-export default function PrecipitationChart({ data, unit }) {
+export default function PrecipitationChart({ data, unit, referenceTime }) {
   if (!data?.hourly) return null;
 
-  const now = Date.now();
   const sortedHours = [...data.hourly].sort((a, b) => new Date(a.time) - new Date(b.time));
+  const now = referenceTime instanceof Date
+    ? referenceTime.getTime()
+    : new Date(sortedHours[0]?.time ?? 0).getTime();
   const futureHours = sortedHours.filter((h) => {
     const ts = new Date(h.time).getTime();
     return !Number.isNaN(ts) && ts >= now;
