@@ -218,18 +218,24 @@ function App() {
 
         <div className="layout-columns">
           <section className="layout-col layout-col-main">
-            <CurrentWeather
-              data={displayData}
-              unit={unit}
-              isManualLocation={!!manualLocation}
-              referenceTime={lastUpdated}
-            />
-            <PrecipitationChart data={displayData} unit={unit} referenceTime={lastUpdated} />
+            <div className="panel-hero">
+              <CurrentWeather
+                data={displayData}
+                unit={unit}
+                isManualLocation={!!manualLocation}
+                referenceTime={lastUpdated}
+              />
+            </div>
+            <div className="panel-precip">
+              <PrecipitationChart data={displayData} unit={unit} referenceTime={lastUpdated} />
+            </div>
           </section>
 
           <section className="layout-col layout-col-side">
-            <Forecast data={displayData} unit={unit} referenceTime={lastUpdated} />
-            <div className="widgets-row">
+            <div className="panel-forecast">
+              <Forecast data={displayData} unit={unit} referenceTime={lastUpdated} />
+            </div>
+            <div className="widgets-row panel-widgets">
               <SunriseSunset data={displayData} unit={unit} />
               <WindCompass data={displayData} unit={unit} />
             </div>

@@ -32,7 +32,7 @@
   /* Text colors */
   --text-primary: #f0f6fc;
   --text-secondary: rgba(240, 246, 252, 0.6);
-  --text-muted: rgba(240, 246, 252, 0.4);
+  --text-muted: rgba(240, 246, 252, 0.55);
 
   /* Accent colors - Aurora inspired */
   --accent-cyan: #58d1eb;
@@ -439,6 +439,19 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-md);
+}
+
+/* Mobile: hoist the forecast directly under the hero (the two most-wanted
+   pieces of information), pushing precipitation detail and widgets below. */
+@media (max-width: 767px) {
+  .layout-col {
+    display: contents;
+  }
+
+  .panel-hero { order: 0; }
+  .panel-forecast { order: 1; }
+  .panel-precip { order: 2; }
+  .panel-widgets { order: 3; }
 }
 
 /* Tablet / Desktop Grid Layout */

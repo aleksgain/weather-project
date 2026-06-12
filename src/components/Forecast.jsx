@@ -160,12 +160,12 @@ export default function Forecast({ data, unit, referenceTime }) {
                   {formatTemp(hour.temp, unit)}°
                 </span>
 
-                {/* Precipitation probability */}
-                {precipProb != null && (
+                {/* Precipitation probability (hidden when negligible) */}
+                {precipProb != null && precipProb >= 5 && (
                   <span
                     style={{
-                      fontSize: '0.65rem',
-                      color: 'var(--accent-blue, #60a5fa)',
+                      fontSize: '0.75rem',
+                      color: 'var(--accent-blue)',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '2px',
@@ -177,7 +177,7 @@ export default function Forecast({ data, unit, referenceTime }) {
                         width: '4px',
                         height: '4px',
                         borderRadius: '50%',
-                        background: 'var(--accent-blue, #60a5fa)',
+                        background: 'var(--accent-blue)',
                       }}
                       aria-hidden="true"
                     />
@@ -225,6 +225,7 @@ export default function Forecast({ data, unit, referenceTime }) {
             // Calculate bar positions based on actual temperature range
             const lowPercent = ((day.low - minTemp) / tempRange) * 100;
             const highPercent = ((day.high - minTemp) / tempRange) * 100;
+            const segWidth = Math.max(highPercent - lowPercent, 1);
 
             return (
               <div
@@ -265,12 +266,12 @@ export default function Forecast({ data, unit, referenceTime }) {
                   className="mono"
                   style={{
                     fontSize: '0.75rem',
-                    color: 'var(--accent-blue, #60a5fa)',
+                    color: 'var(--accent-blue)',
                     minWidth: '32px',
                     textAlign: 'right',
                   }}
                 >
-                  {precipProb != null ? `${Math.round(precipProb)}%` : ''}
+                  {precipProb != null && precipProb >= 5 ? `${Math.round(precipProb)}%` : ''}
                 </span>
 
                 {/* Low temp */}
@@ -306,11 +307,24 @@ export default function Forecast({ data, unit, referenceTime }) {
                       right: `${100 - highPercent}%`,
                       top: 0,
                       bottom: 0,
-                      background: 'var(--gradient-temp)',
                       borderRadius: '3px',
                       minWidth: '8px',
+                      overflow: 'hidden',
                     }}
-                  />
+                  >
+                    {/* Gradient spans the full track so each day's segment
+                        shows only the colors of its actual temperature range */}
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        bottom: 0,
+                        left: `${(-lowPercent * 100) / segWidth}%`,
+                        width: `${10000 / segWidth}%`,
+                        background: 'var(--gradient-temp)',
+                      }}
+                    />
+                  </div>
                 </div>
 
                 {/* High temp */}
