@@ -154,6 +154,14 @@ export default function CurrentWeather({ data, unit, isManualLocation, reference
     : currentHour < 6 || currentHour >= 18;
   const iconColor = getIconColor(condition, isNight);
   const conditionType = getConditionType(condition);
+  const confidenceColor =
+    confidence == null
+      ? 'var(--text-muted)'
+      : confidence >= 0.8
+        ? 'var(--accent-green)'
+        : confidence >= 0.6
+          ? 'var(--accent-yellow)'
+          : 'var(--accent-orange)';
 
   return (
     <article
@@ -316,13 +324,36 @@ export default function CurrentWeather({ data, unit, isManualLocation, reference
         <div
           style={{
             marginTop: 'var(--spacing-md)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
             fontSize: '0.8rem',
-            color: 'var(--text-muted)',
-            opacity: 0.7,
+            fontWeight: 500,
+            color: 'var(--text-secondary)',
+            background: 'var(--glass-bg)',
+            border: '1px solid var(--glass-border)',
+            padding: '4px 12px',
+            borderRadius: '999px',
           }}
+          aria-label={
+            confidence != null
+              ? `Forecast confidence ${Math.round(confidence * 100)} percent, aggregated from ${sourceCount} ${sourceCount === 1 ? 'source' : 'sources'}`
+              : `Data aggregated from ${sourceCount} ${sourceCount === 1 ? 'source' : 'sources'}`
+          }
         >
-          Data from {sourceCount} {sourceCount === 1 ? 'source' : 'sources'}
-          {confidence != null && ` \u00b7 ${Math.round(confidence * 100)}% confidence`}
+          <span
+            style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              background: confidenceColor,
+              flexShrink: 0,
+            }}
+            aria-hidden="true"
+          />
+          {confidence != null
+            ? `${Math.round(confidence * 100)}% confidence \u00b7 ${sourceCount} ${sourceCount === 1 ? 'source' : 'sources'}`
+            : `Data from ${sourceCount} ${sourceCount === 1 ? 'source' : 'sources'}`}
         </div>
       )}
     </article>

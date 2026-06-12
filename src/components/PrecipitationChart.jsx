@@ -78,6 +78,7 @@ export default function PrecipitationChart({ data, unit, referenceTime }) {
               <div
                 key={hour.time ?? `precip-${i}`}
                 className="hourly-scroll-item"
+                style={{ opacity: prob === 0 && amount === 0 ? 0.45 : 1 }}
                 role="listitem"
                 aria-label={`${formatHourlyLabel(hour.time)}: ${Math.round(prob)}% chance${amount > 0 ? `, ${amount} ${precipUnit}` : ''}`}
               >
@@ -126,12 +127,12 @@ export default function PrecipitationChart({ data, unit, referenceTime }) {
                 <span
                   className="mono"
                   style={{
-                    fontSize: '0.65rem',
-                    color: 'var(--accent-cyan)',
+                    fontSize: '0.7rem',
+                    color: amount > 0 ? 'var(--accent-cyan)' : 'var(--text-muted)',
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  {amount > 0 ? `${amount}${precipUnit}` : prob > 0 ? `0${precipUnit}` : `0${precipUnit}`}
+                  {amount > 0 ? `${amount}${precipUnit}` : '·'}
                 </span>
               </div>
             );
