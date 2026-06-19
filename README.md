@@ -188,16 +188,17 @@ The app's primary value is blending these providers into a single forecast and s
 ```
 src/
 ├── components/      # React components
-│   ├── CurrentWeather.jsx
-│   ├── DetailedMetrics.jsx
+│   ├── AtmosphericHero.jsx   # "How you'll feel" current-conditions hero
+│   ├── WeatherIcon.jsx       # Animated, theme-aware weather icon
 │   ├── Forecast.jsx
-│   └── UnitToggle.jsx
+│   └── DetailedMetrics.jsx
 ├── config/          # App configuration
 │   └── weather-sources.js
-├── services/        # API services
-│   └── weather.js
+├── services/        # API services & multi-source aggregation
+│   ├── weather.js
+│   └── aggregator.js
 ├── utils/           # Utility functions
-│   ├── iconMap.js
+│   ├── weatherAdvice.js      # Plain-language headline + advice generator
 │   └── unitConversion.js
 ├── App.jsx
 ├── App.css

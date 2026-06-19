@@ -197,11 +197,6 @@ export default function DetailedMetrics({ data, unit }) {
 
   return (
     <section
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(2, 1fr)',
-        gap: 'var(--spacing-md)',
-      }}
       className="detailed-metrics-grid"
       aria-label="Detailed weather metrics"
     >

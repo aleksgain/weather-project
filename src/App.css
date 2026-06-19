@@ -426,16 +426,36 @@
   background: linear-gradient(to top, var(--accent-cyan), var(--accent-blue));
 }
 
-/* Expanded metric grid */
+/* Expanded metric grid.
+   Mobile keeps a fixed 2-up. From tablet up, auto-fill keeps each card a
+   consistent ~180-210px regardless of viewport width, so cards stay compact and
+   dense instead of stretching into oversized squares with content stranded in
+   the corners on wide screens. */
 .detailed-metrics-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  /* minmax(0, 1fr) lets the two mobile columns stay equal halves instead of
+     being forced wider by card content (which overflowed past the right gutter). */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-md);
+}
+
+@media (min-width: 768px) {
+  .detailed-metrics-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
+}
+
+/* Daily forecast rows. The row packs six fixed-width items (day, icon, precip,
+   low, range bar, high); on narrow mobile a 16px gap × 5 overflowed the row and
+   shoved the high temp against the right edge, so the gap tightens on small
+   screens to let the range bar grow instead. */
+.daily-forecast-row {
   gap: var(--spacing-sm);
 }
 
-@media (min-width: 1200px) {
-  .detailed-metrics-grid {
-    grid-template-columns: repeat(3, 1fr) !important;
+@media (max-width: 767px) {
+  .daily-forecast-row {
+    gap: 8px;
   }
 }
 

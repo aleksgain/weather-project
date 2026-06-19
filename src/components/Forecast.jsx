@@ -230,10 +230,10 @@ export default function Forecast({ data, unit, referenceTime }) {
             return (
               <div
                 key={dayKey}
+                className="daily-forecast-row"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 'var(--spacing-md)',
                   borderBottom:
                     index !== daily.length - 1 ? '1px solid var(--glass-border)' : 'none',
                   paddingBottom: index !== daily.length - 1 ? 'var(--spacing-sm)' : '0',
