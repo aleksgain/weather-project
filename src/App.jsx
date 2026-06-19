@@ -5,7 +5,7 @@ import { useTheme } from './hooks/useTheme';
 import { useWeatherData } from './hooks/useWeatherData';
 import { clearCache } from './services/weather';
 import { uiConfig } from './config/weather-sources';
-import CurrentWeather from './components/CurrentWeather';
+import AtmosphericHero from './components/AtmosphericHero';
 import Forecast from './components/Forecast';
 import DetailedMetrics from './components/DetailedMetrics';
 import UnitToggle from './components/UnitToggle';
@@ -219,7 +219,7 @@ function App() {
         <div className="layout-columns">
           <section className="layout-col layout-col-main">
             <div className="panel-hero">
-              <CurrentWeather
+              <AtmosphericHero
                 data={displayData}
                 unit={unit}
                 isManualLocation={!!manualLocation}
