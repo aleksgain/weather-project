@@ -1,4 +1,4 @@
-import { MapPin } from 'lucide-react';
+import { MapPin, TrendingUp, TrendingDown, CloudRain, Sun, CloudLightning } from 'lucide-react';
 import { formatTemp } from '../utils/unitConversion';
 import { buildFeelsCopy, ADVICE_TONE_COLOR } from '../utils/weatherAdvice';
 import WeatherIcon from './WeatherIcon';
@@ -38,7 +38,16 @@ export default function AtmosphericHero({ data, unit, isManualLocation, referenc
     : confPct >= 75 ? 'var(--accent-green)'
     : confPct >= 65 ? 'var(--accent-yellow)' : 'var(--accent-orange)';
 
-  const { headline, detail, advice } = buildFeelsCopy(cur, unit, { isNight });
+  const { headline, detail, advice, outlook } = buildFeelsCopy(cur, unit, {
+    isNight,
+    date: new Date(effectiveNowTs),
+    hourly: data.hourly,
+    daily: data.daily,
+  });
+
+  const OutlookIcon = outlook
+    ? { up: TrendingUp, down: TrendingDown, rain: CloudRain, clear: Sun, storm: CloudLightning }[outlook.direction] ?? TrendingUp
+    : null;
 
   return (
     <article
@@ -114,6 +123,27 @@ export default function AtmosphericHero({ data, unit, isManualLocation, referenc
           </div>
         ))}
       </div>
+
+      {/* forecast-reactive outlook */}
+      {outlook && (
+        <div
+          className="atmo-advice"
+          style={{
+            marginTop: 'var(--spacing-md)',
+            paddingTop: 'var(--spacing-md)',
+            borderTop: '1px solid var(--glass-border)',
+          }}
+          aria-label={`Outlook: ${outlook.text}`}
+        >
+          <OutlookIcon
+            size={15}
+            style={{ flex: 'none', color: ADVICE_TONE_COLOR[outlook.tone] || 'var(--accent-cyan)' }}
+            aria-hidden="true"
+          />
+          <span style={{ flex: 1, fontSize: '0.95rem', fontWeight: 500 }}>{outlook.text}</span>
+          <span className="mono" style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{outlook.meta}</span>
+        </div>
+      )}
     </article>
   );
 }

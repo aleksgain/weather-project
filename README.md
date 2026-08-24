@@ -4,8 +4,11 @@ A weather app focused on source aggregation and confidence scoring. It combines 
 
 ## Features
 
-- 🔀 Multi-source weather aggregation
-- 🎯 Confidence score based on cross-source agreement
+- 🔀 Multi-source weather aggregation with outlier rejection (weighted median + MAD)
+- 🎯 Per-metric confidence scoring (temperature, conditions, precipitation, wind) plus per-day forecast agreement
+- 🧮 Data completion — missing dew point, humidity, and feels-like are computed from what each source reports, and sources that only report numbers still take part in condition voting
+- ⛈️ Severity-aware condition voting — a significant severe-weather minority is never averaged away
+- 🔍 Source Agreement panel showing each provider's values, deviation from consensus, and excluded outliers
 - 📍 Automatic geolocation with fallback to default location
 - 🌡️ Toggle between Celsius and Fahrenheit
 - 🌓 Theme switcher with `System`, `Dark`, and `Light` modes
@@ -139,6 +142,17 @@ This repo includes a Community Applications template: `unraid-template.xml`.
    - `https://raw.githubusercontent.com/aleksgain/weather-project/master/unraid-template.xml`
 3. Search for **Weather App** and install.
 4. Set API keys and fallback location values in the container template (optional).
+
+## How Aggregation Works
+
+The aggregation engine (`src/services/aggregator.js`) blends the enabled providers in four stages:
+
+1. **Completion** — before merging, each source dataset is filled in with fields it didn't report but that can be computed from what it did report: dew point ↔ relative humidity (Magnus formula), feels-like (wind chill or Steadman apparent temperature), and a condition inferred from precipitation/visibility/cloud-cover numbers when a source reports no usable condition text. This means more sources contribute to every field.
+2. **Robust averaging** — numeric fields are combined with a weighted average, but with 3+ sources any value deviating from the weighted median by more than max(3×MAD, per-field floor) is excluded first, so one broken source cannot skew the result. Excluded sources are reported in the UI.
+3. **Severity-aware condition voting** — conditions are grouped into categories and the weighted majority wins, except that a severe-weather category (thunderstorm, hail, freezing) carrying ≥ 34% of the total weight overrides a milder majority.
+4. **Confidence scoring** — agreement is scored per metric (temperature spread, condition vote share, next-12h precipitation probability spread, wind spread) and combined into the overall confidence. Each forecast day also gets its own agreement score, so users can see confidence decay with lead time.
+
+The completion and severity-inference approach is inspired by the excellent [Breezy Weather](https://github.com/breezy-weather/breezy-weather) project (LGPL-3.0); this implementation is independent and based on standard published formulas.
 
 ## Weather API Sources
 

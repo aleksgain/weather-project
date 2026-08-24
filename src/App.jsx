@@ -15,6 +15,7 @@ import PrecipitationChart from './components/PrecipitationChart';
 import SunriseSunset from './components/SunriseSunset';
 import WindCompass from './components/WindCompass';
 import ThemeToggle from './components/ThemeToggle';
+import SourceBreakdown from './components/SourceBreakdown';
 
 // Lazy-load heavy map components
 const WeatherMapOverlays = lazy(() => import('./components/WeatherMapOverlays'));
@@ -229,6 +230,7 @@ function App() {
             <div className="panel-precip">
               <PrecipitationChart data={displayData} unit={unit} referenceTime={lastUpdated} />
             </div>
+            <SourceBreakdown data={displayData} unit={unit} />
           </section>
 
           <section className="layout-col layout-col-side">
