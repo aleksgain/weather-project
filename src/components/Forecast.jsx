@@ -221,6 +221,15 @@ export default function Forecast({ data, unit, referenceTime }) {
               ? 'Today'
               : date.toLocaleDateString('en-US', { weekday: 'short' });
             const precipProb = day.precipProbability ?? day.precipitationProbability ?? null;
+            const dayConfidence = typeof day.confidence === 'number' ? day.confidence : null;
+            const confidenceColor =
+              dayConfidence == null
+                ? 'var(--text-muted)'
+                : dayConfidence >= 0.8
+                  ? 'var(--accent-green)'
+                  : dayConfidence >= 0.6
+                    ? 'var(--accent-yellow)'
+                    : 'var(--accent-orange)';
 
             // Calculate bar positions based on actual temperature range
             const lowPercent = ((day.low - minTemp) / tempRange) * 100;
@@ -339,6 +348,23 @@ export default function Forecast({ data, unit, referenceTime }) {
                 >
                   {formatTemp(day.high, unit)}°
                 </span>
+
+                {/* Per-day source agreement indicator */}
+                {dayConfidence != null && (
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      background: confidenceColor,
+                      marginLeft: '6px',
+                      flexShrink: 0,
+                    }}
+                    title={`${Math.round(dayConfidence * 100)}% source agreement for this day`}
+                    aria-label={`${Math.round(dayConfidence * 100)} percent source agreement`}
+                  />
+                )}
               </div>
             );
           })}

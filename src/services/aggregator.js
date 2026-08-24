@@ -1,8 +1,26 @@
 /**
  * Weighted Weather Data Aggregation Engine
- * Combines data from multiple weather sources using weighted averaging,
- * condition voting, and confidence scoring.
+ *
+ * Combines data from multiple weather sources using:
+ * - pre-merge data completion (missing fields computed from what a source
+ *   does report, so more sources contribute to every field)
+ * - outlier rejection (weighted median + MAD) so one broken source cannot
+ *   skew the consensus
+ * - severity-aware condition voting (a strong severe-weather minority is
+ *   never averaged away)
+ * - per-metric and per-day confidence scoring
+ *
+ * The completion + severity-inference approach is inspired by the Breezy
+ * Weather project's aggregation pipeline; all code here is an independent
+ * implementation using standard published formulas.
  */
+
+import {
+    computeDewPoint,
+    computeRelativeHumidity,
+    computeFeelsLike,
+    inferConditionFromData,
+} from '../utils/meteorology';
 
 /** Source weights for aggregation */
 const SOURCE_WEIGHTS = {
@@ -23,6 +41,21 @@ const NUMERIC_FIELDS = [
 ];
 
 /**
+ * Absolute deviation floors per field (same unit as the field): a value is
+ * only treated as an outlier when it deviates from the weighted median by
+ * more than max(3×MAD·1.4826, floor). The floor stops us from dropping
+ * sources over meaningless differences when all sources agree closely.
+ */
+const OUTLIER_FLOORS = {
+    temp: 3, high: 3, low: 3, feelsLike: 4, dewPoint: 3,
+    windSpeed: 12, humidity: 18, pressure: 8, uvIndex: 3,
+    visibility: 6, precipitation: 2, windGust: 18,
+};
+
+/** Minimum number of values before outlier rejection makes sense */
+const MIN_VALUES_FOR_OUTLIER_CHECK = 3;
+
+/**
  * Maps detailed condition strings to broad categories for voting
  * @param {string} condition
  * @returns {string}
@@ -32,6 +65,7 @@ function getConditionCategory(condition) {
     const lower = condition.toLowerCase();
 
     if (lower.includes('thunder')) return 'thunderstorm';
+    if (lower.includes('hail')) return 'hail';
     if (lower.includes('snow') || lower.includes('blizzard') || lower.includes('sleet')) return 'snow';
     if (lower.includes('freezing')) return 'freezing';
     if (lower.includes('rain') || lower.includes('drizzle') || lower.includes('shower')) return 'rain';
@@ -44,6 +78,26 @@ function getConditionCategory(condition) {
 }
 
 /**
+ * Severity rank per condition category. Used so that a significant minority
+ * reporting dangerous weather beats an averaged-out "cloudy".
+ */
+const CATEGORY_SEVERITY = {
+    thunderstorm: 5,
+    hail: 5,
+    freezing: 4,
+    snow: 3,
+    rain: 2,
+    fog: 1,
+    overcast: 0,
+    cloudy: 0,
+    clear: 0,
+    unknown: 0,
+};
+
+/** Weight share a severe minority needs to override a milder majority */
+const SEVERE_OVERRIDE_SHARE = 0.34;
+
+/**
  * Get the weight for a given source
  * @param {string} source
  * @returns {number}
@@ -52,27 +106,8 @@ function getWeight(source) {
     return SOURCE_WEIGHTS[source] ?? 1.0;
 }
 
-/**
- * Weighted average of a numeric field across datasets
- * @param {Array<Object>} items - Objects containing the field
- * @param {string} field - Field name to average
- * @param {Array<number>} weights - Corresponding weights
- * @returns {number|null}
- */
-function weightedAverage(items, field, weights) {
-    let sum = 0;
-    let totalWeight = 0;
-
-    for (let i = 0; i < items.length; i++) {
-        const val = items[i][field];
-        if (val != null && !isNaN(val)) {
-            sum += val * weights[i];
-            totalWeight += weights[i];
-        }
-    }
-
-    if (totalWeight === 0) return null;
-    return Number((sum / totalWeight).toFixed(1));
+function isNum(v) {
+    return typeof v === 'number' && !Number.isNaN(v);
 }
 
 /**
@@ -84,11 +119,76 @@ function weightedAverage(items, field, weights) {
 function getNumericAlias(item, fields) {
     for (const field of fields) {
         const val = item?.[field];
-        if (typeof val === 'number' && !Number.isNaN(val)) {
-            return val;
-        }
+        if (isNum(val)) return val;
     }
     return null;
+}
+
+/**
+ * Weighted median of {value, weight} pairs.
+ * @param {Array<{value: number, weight: number}>} pairs
+ * @returns {number|null}
+ */
+function weightedMedian(pairs) {
+    if (pairs.length === 0) return null;
+    const sorted = [...pairs].sort((a, b) => a.value - b.value);
+    const total = sorted.reduce((s, p) => s + p.weight, 0);
+    let cumulative = 0;
+    for (const p of sorted) {
+        cumulative += p.weight;
+        if (cumulative >= total / 2) return p.value;
+    }
+    return sorted[sorted.length - 1].value;
+}
+
+/**
+ * Robust weighted average with outlier rejection.
+ * With 3+ values: values deviating from the weighted median by more than
+ * max(3×scaled MAD, floor) are excluded from the average.
+ *
+ * @param {Array<Object>} items
+ * @param {Array<string>} fields - field name aliases, first match wins
+ * @param {Array<number>} weights
+ * @param {number} [floor] - absolute deviation floor (see OUTLIER_FLOORS)
+ * @returns {{value: number|null, outlierIndexes: Array<number>, count: number}}
+ */
+function robustWeightedAverage(items, fields, weights, floor = Infinity) {
+    const pairs = [];
+    for (let i = 0; i < items.length; i++) {
+        const val = getNumericAlias(items[i], fields);
+        if (val != null) pairs.push({ value: val, weight: weights[i], index: i });
+    }
+    if (pairs.length === 0) return { value: null, outlierIndexes: [], count: 0 };
+
+    let usable = pairs;
+    const outlierIndexes = [];
+
+    if (pairs.length >= MIN_VALUES_FOR_OUTLIER_CHECK && Number.isFinite(floor)) {
+        const median = weightedMedian(pairs);
+        const deviations = pairs.map(p => Math.abs(p.value - median));
+        const mad = weightedMedian(deviations.map((d, i) => ({ value: d, weight: pairs[i].weight })));
+        // 1.4826 scales MAD to a stdev-equivalent for normal distributions
+        const tolerance = Math.max(3 * 1.4826 * (mad ?? 0), floor);
+        usable = pairs.filter((p, i) => {
+            const keep = deviations[i] <= tolerance;
+            if (!keep) outlierIndexes.push(p.index);
+            return keep;
+        });
+        if (usable.length === 0) usable = pairs; // never drop everything
+    }
+
+    let sum = 0;
+    let totalWeight = 0;
+    for (const p of usable) {
+        sum += p.value * p.weight;
+        totalWeight += p.weight;
+    }
+    if (totalWeight === 0) return { value: null, outlierIndexes: [], count: 0 };
+    return {
+        value: Number((sum / totalWeight).toFixed(1)),
+        outlierIndexes,
+        count: usable.length,
+    };
 }
 
 /**
@@ -99,19 +199,7 @@ function getNumericAlias(item, fields) {
  * @returns {number|null}
  */
 function weightedAverageAlias(items, fields, weights) {
-    let sum = 0;
-    let totalWeight = 0;
-
-    for (let i = 0; i < items.length; i++) {
-        const val = getNumericAlias(items[i], fields);
-        if (val != null) {
-            sum += val * weights[i];
-            totalWeight += weights[i];
-        }
-    }
-
-    if (totalWeight === 0) return null;
-    return Number((sum / totalWeight).toFixed(1));
+    return robustWeightedAverage(items, fields, weights).value;
 }
 
 /**
@@ -173,7 +261,7 @@ function weightedTimeIso(items, fields, weights) {
  * @returns {number|null}
  */
 function mapEpaIndexToAqi(usEpaIndex) {
-    if (typeof usEpaIndex !== 'number' || Number.isNaN(usEpaIndex)) return null;
+    if (!isNum(usEpaIndex)) return null;
     const midpointByIndex = {
         1: 25,
         2: 75,
@@ -185,14 +273,80 @@ function mapEpaIndexToAqi(usEpaIndex) {
     return midpointByIndex[usEpaIndex] ?? null;
 }
 
-/**
- * Vote on condition strings using majority-wins with tie-breaking by weight
- * @param {Array<{condition: string, weight: number}>} entries
- * @returns {string}
+/*
+ * DATA COMPLETION (pre-merge)
  */
-function voteCondition(entries) {
-    if (entries.length === 0) return 'Unknown';
-    if (entries.length === 1) return entries[0].condition;
+
+/**
+ * Returns a condition string usable for voting, or null.
+ * @param {string|null|undefined} condition
+ */
+function usableCondition(condition) {
+    if (!condition || typeof condition !== 'string') return null;
+    if (getConditionCategory(condition) === 'unknown') return null;
+    return condition;
+}
+
+/**
+ * Complete a source dataset with fields it didn't report but that can be
+ * computed from what it did report. Returns a new dataset; the input is
+ * not mutated.
+ * @param {Object} dataset
+ * @returns {Object}
+ */
+export function completeDataset(dataset) {
+    if (!dataset?.current) return dataset;
+    const c = dataset.current;
+
+    const humidity = isNum(c.humidity) ? c.humidity : computeRelativeHumidity(c.temp, c.dewPoint);
+    const dewPoint = isNum(c.dewPoint) ? c.dewPoint : computeDewPoint(c.temp, humidity);
+    const feelsLike = isNum(c.feelsLike) ? c.feelsLike : computeFeelsLike(c.temp, humidity, c.windSpeed);
+    const condition = usableCondition(c.condition) ?? inferConditionFromData({
+        temp: c.temp,
+        precipAmount: c.precipitation,
+        visibility: c.visibility,
+        cloudCover: c.cloudCover,
+    }) ?? c.condition;
+
+    const current = { ...c };
+    if (humidity != null) current.humidity = humidity;
+    if (dewPoint != null) current.dewPoint = dewPoint;
+    if (feelsLike != null) current.feelsLike = feelsLike;
+    if (condition != null) current.condition = condition;
+
+    const hourly = Array.isArray(dataset.hourly)
+        ? dataset.hourly.map(h => {
+            if (usableCondition(h?.condition)) return h;
+            const inferred = inferConditionFromData({
+                temp: h?.temp,
+                precipAmount: getNumericAlias(h, ['precipAmount', 'precipitation', 'precipitationAmount']),
+                precipProbability: getNumericAlias(h, ['precipProbability', 'precipitationProbability', 'chanceOfRain']),
+            });
+            return inferred ? { ...h, condition: inferred } : h;
+        })
+        : dataset.hourly;
+
+    return { ...dataset, current, hourly };
+}
+
+/*
+ * CONDITION VOTING
+ */
+
+/**
+ * Vote on condition strings: majority wins with weight tie-breaking, but a
+ * severe-weather minority above SEVERE_OVERRIDE_SHARE of total weight
+ * overrides a milder majority (safety bias).
+ *
+ * @param {Array<{condition: string, weight: number}>} entries
+ * @returns {{condition: string, agreement: number|null}}
+ *   agreement = weight share of the winning category (null if <2 entries)
+ */
+function voteConditionDetailed(entries) {
+    if (entries.length === 0) return { condition: 'Unknown', agreement: null };
+    if (entries.length === 1) return { condition: entries[0].condition, agreement: null };
+
+    const totalWeight = entries.reduce((s, e) => s + e.weight, 0);
 
     // Group by category
     const categoryVotes = {};
@@ -211,63 +365,148 @@ function voteCondition(entries) {
 
     // Find winner: most votes, then highest total weight
     let winner = null;
-    for (const [, data] of Object.entries(categoryVotes)) {
+    let winnerCat = null;
+    for (const [cat, data] of Object.entries(categoryVotes)) {
         if (!winner || data.count > winner.count ||
             (data.count === winner.count && data.totalWeight > winner.totalWeight)) {
             winner = data;
+            winnerCat = cat;
         }
     }
 
-    return winner.bestCondition;
+    // Severity override: a significant minority reporting more dangerous
+    // weather beats a milder majority.
+    for (const [cat, data] of Object.entries(categoryVotes)) {
+        if (cat === winnerCat) continue;
+        const moreSevere = (CATEGORY_SEVERITY[cat] ?? 0) > (CATEGORY_SEVERITY[winnerCat] ?? 0);
+        const significant = totalWeight > 0 && data.totalWeight / totalWeight >= SEVERE_OVERRIDE_SHARE;
+        if (moreSevere && significant) {
+            winner = data;
+            winnerCat = cat;
+        }
+    }
+
+    return {
+        condition: winner.bestCondition,
+        agreement: totalWeight > 0 ? Number((winner.totalWeight / totalWeight).toFixed(2)) : null,
+    };
 }
 
 /**
- * Calculate confidence score (0-1) based on source agreement
- * @param {Array<Object>} datasets - Source datasets
- * @returns {number}
+ * Back-compat helper returning only the winning condition string.
+ * @param {Array<{condition: string, weight: number}>} entries
+ * @returns {string}
  */
-function calculateConfidence(datasets) {
-    if (datasets.length <= 1) return 1.0;
+function voteCondition(entries) {
+    return voteConditionDetailed(entries).condition;
+}
 
-    let score = 1.0;
+/*
+ * CONFIDENCE SCORING
+ */
 
-    // Temperature spread penalty
-    const temps = datasets.map(d => d.current?.temp).filter(t => t != null);
-    if (temps.length > 1) {
-        const spread = Math.max(...temps) - Math.min(...temps);
-        // >5C spread = low confidence
-        score -= Math.min(0.4, spread * 0.08);
-    }
+function clamp01(v) {
+    return Math.max(0, Math.min(1, v));
+}
 
-    // Condition consensus penalty
-    const categories = datasets.map(d => getConditionCategory(d.current?.condition));
-    const uniqueCategories = new Set(categories);
-    if (uniqueCategories.size > 1) {
-        score -= (uniqueCategories.size - 1) * 0.15;
-    }
-
-    return Math.max(0, Math.min(1, Number(score.toFixed(2))));
+function spreadOf(values) {
+    if (values.length < 2) return null;
+    return Math.max(...values) - Math.min(...values);
 }
 
 /**
- * Aggregate current weather data from multiple sources
- * @param {Array<Object>} datasets
+ * Per-metric agreement scores (each 0-1, or null when <2 sources report
+ * that metric) and a weighted overall confidence.
+ *
+ * @param {Array<Object>} datasets - completed source datasets
  * @param {Array<number>} weights
- * @returns {Object}
+ * @returns {{overall: number, breakdown: Object}}
+ */
+function calculateConfidenceDetailed(datasets, weights) {
+    // Temperature agreement: 6°C spread across sources → 0
+    const temps = datasets.map(d => d.current?.temp).filter(isNum);
+    const tempSpread = spreadOf(temps);
+    const temperature = tempSpread == null ? null : Number(clamp01(1 - tempSpread / 6).toFixed(2));
+
+    // Condition agreement: weight share of the winning category
+    const conditionEntries = datasets
+        .map((d, i) => ({ condition: d.current?.condition, weight: weights[i] }))
+        .filter(e => usableCondition(e.condition));
+    const { agreement: condition } = voteConditionDetailed(conditionEntries);
+
+    // Precipitation agreement: mean precip probability over the next 12
+    // merged-forecast hours per source; 60-point spread → 0
+    const perSourcePrecip = datasets.map(d => {
+        if (!Array.isArray(d.hourly)) return null;
+        const probs = d.hourly
+            .slice(0, 12)
+            .map(h => getNumericAlias(h, ['precipProbability', 'precipitationProbability', 'chanceOfRain']))
+            .filter(isNum);
+        if (probs.length === 0) return null;
+        return probs.reduce((s, p) => s + p, 0) / probs.length;
+    }).filter(isNum);
+    const precipSpread = spreadOf(perSourcePrecip);
+    const precipitation = precipSpread == null ? null : Number(clamp01(1 - precipSpread / 60).toFixed(2));
+
+    // Wind agreement: 20 km/h spread → 0
+    const winds = datasets.map(d => d.current?.windSpeed).filter(isNum);
+    const windSpread = spreadOf(winds);
+    const wind = windSpread == null ? null : Number(clamp01(1 - windSpread / 20).toFixed(2));
+
+    const parts = [
+        { score: temperature, weight: 0.35 },
+        { score: condition, weight: 0.30 },
+        { score: precipitation, weight: 0.20 },
+        { score: wind, weight: 0.15 },
+    ].filter(p => p.score != null);
+
+    let overall = 1.0;
+    if (parts.length > 0) {
+        const totalWeight = parts.reduce((s, p) => s + p.weight, 0);
+        overall = Number(
+            (parts.reduce((s, p) => s + p.score * p.weight, 0) / totalWeight).toFixed(2)
+        );
+    }
+
+    return {
+        overall: clamp01(overall),
+        breakdown: { temperature, condition, precipitation, wind },
+    };
+}
+
+/*
+ * CURRENT AGGREGATION
+ */
+
+/**
+ * Aggregate current weather data from multiple sources.
+ * @param {Array<Object>} datasets - completed datasets
+ * @param {Array<number>} weights
+ * @returns {{current: Object, outlierFields: Object}}
+ *   outlierFields maps field name → array of source ids dropped as outliers
  */
 function aggregateCurrent(datasets, weights) {
     const currents = datasets.map(d => d.current).filter(Boolean);
-    if (currents.length === 0) return {};
+    if (currents.length === 0) return { current: {}, outlierFields: {} };
 
     const result = {};
+    const outlierFields = {};
 
-    // Weighted average for numeric fields
+    const recordOutliers = (field, outlierIndexes) => {
+        if (outlierIndexes.length === 0) return;
+        outlierFields[field] = outlierIndexes.map(i => datasets[i]?.source ?? 'unknown');
+    };
+
+    // Robust weighted average for numeric fields
     for (const field of NUMERIC_FIELDS) {
-        const val = weightedAverage(currents, field, weights);
-        if (val != null) result[field] = val;
+        const { value, outlierIndexes } = robustWeightedAverage(
+            currents, [field], weights, OUTLIER_FLOORS[field]
+        );
+        if (value != null) result[field] = value;
+        recordOutliers(field, outlierIndexes);
     }
 
-    // Vote on condition
+    // Vote on condition (severity-aware)
     const conditionEntries = currents.map((c, i) => ({
         condition: c.condition,
         weight: weights[i],
@@ -278,14 +517,16 @@ function aggregateCurrent(datasets, weights) {
     const windDirection = weightedWindDirection(currents, weights);
     if (windDirection != null) result.windDirection = windDirection;
 
-    const windGust = weightedAverageAlias(currents, ['windGust', 'windGusts'], weights);
-    if (windGust != null) result.windGust = windGust;
+    const windGust = robustWeightedAverage(currents, ['windGust', 'windGusts'], weights, OUTLIER_FLOORS.windGust);
+    if (windGust.value != null) result.windGust = windGust.value;
+    recordOutliers('windGust', windGust.outlierIndexes);
 
-    const dewPoint = weightedAverageAlias(currents, ['dewPoint'], weights);
-    if (dewPoint != null) result.dewPoint = dewPoint;
+    const dewPoint = robustWeightedAverage(currents, ['dewPoint'], weights, OUTLIER_FLOORS.dewPoint);
+    if (dewPoint.value != null) result.dewPoint = dewPoint.value;
+    recordOutliers('dewPoint', dewPoint.outlierIndexes);
 
-    const precipitation = weightedAverageAlias(currents, ['precipitation'], weights);
-    if (precipitation != null) result.precipitation = precipitation;
+    const precipitation = robustWeightedAverage(currents, ['precipitation'], weights, OUTLIER_FLOORS.precipitation);
+    if (precipitation.value != null) result.precipitation = precipitation.value;
 
     const sunrise = weightedTimeIso(currents, ['sunrise'], weights);
     if (sunrise) result.sunrise = sunrise;
@@ -296,7 +537,7 @@ function aggregateCurrent(datasets, weights) {
     // Prefer first available scalar AQI value (0-500) when present.
     for (const current of currents) {
         const aqi = getNumericAlias(current, ['airQualityAqi', 'airQuality']);
-        if (typeof aqi === 'number' && !Number.isNaN(aqi)) {
+        if (isNum(aqi)) {
             result.airQuality = aqi;
             break;
         }
@@ -307,8 +548,12 @@ function aggregateCurrent(datasets, weights) {
         }
     }
 
-    return result;
+    return { current: result, outlierFields };
 }
+
+/*
+ * HOURLY MERGE
+ */
 
 /**
  * Normalize an hourly timestamp to a consistent key for merging.
@@ -351,7 +596,7 @@ function mergeHourly(datasets, weights) {
         const entries = items.map(i => i.entry);
         const itemWeights = items.map(i => i.weight);
 
-        const temp = weightedAverage(entries, 'temp', itemWeights);
+        const temp = robustWeightedAverage(entries, ['temp'], itemWeights, OUTLIER_FLOORS.temp).value;
         if (temp != null) merged.temp = temp;
 
         const condEntries = entries.map((e, idx) => ({
@@ -372,19 +617,30 @@ function mergeHourly(datasets, weights) {
         const windDirection = weightedWindDirection(entries, itemWeights);
         if (windDirection != null) merged.windDirection = windDirection;
 
+        // How many sources contributed to this hour (for UI transparency)
+        merged.sourceCount = entries.length;
+
         result.push(merged);
     }
 
     return result.sort((a, b) => new Date(a.time) - new Date(b.time));
 }
 
+/*
+ * DAILY MERGE
+ */
+
 /**
- * Merge daily arrays by matching dates
+ * Merge daily arrays by matching dates, enriched from the merged hourly
+ * forecast (precipitation probability/totals, max wind) and scored with a
+ * per-day confidence that reflects cross-source agreement for that day.
+ *
  * @param {Array<Object>} datasets
  * @param {Array<number>} weights
+ * @param {Array<Object>} mergedHourly - result of mergeHourly
  * @returns {Array<Object>}
  */
-function mergeDaily(datasets, weights) {
+function mergeDaily(datasets, weights, mergedHourly = []) {
     const byDate = new Map();
 
     for (let i = 0; i < datasets.length; i++) {
@@ -400,23 +656,33 @@ function mergeDaily(datasets, weights) {
         }
     }
 
+    // Group merged hourly entries by local date for enrichment
+    const hourlyByDate = new Map();
+    for (const hour of mergedHourly) {
+        const key = (hour.time || '').slice(0, 10);
+        if (!key) continue;
+        if (!hourlyByDate.has(key)) hourlyByDate.set(key, []);
+        hourlyByDate.get(key).push(hour);
+    }
+
     const result = [];
     for (const [date, items] of byDate) {
         const merged = { date };
         const entries = items.map(i => i.entry);
         const itemWeights = items.map(i => i.weight);
 
-        const high = weightedAverage(entries, 'high', itemWeights);
+        const high = robustWeightedAverage(entries, ['high'], itemWeights, OUTLIER_FLOORS.high).value;
         if (high != null) merged.high = high;
 
-        const low = weightedAverage(entries, 'low', itemWeights);
+        const low = robustWeightedAverage(entries, ['low'], itemWeights, OUTLIER_FLOORS.low).value;
         if (low != null) merged.low = low;
 
         const condEntries = entries.map((e, idx) => ({
             condition: e.condition,
             weight: itemWeights[idx],
         })).filter(e => e.condition);
-        merged.condition = voteCondition(condEntries);
+        const { condition, agreement: conditionAgreement } = voteConditionDetailed(condEntries);
+        merged.condition = condition;
 
         const sunrise = weightedTimeIso(entries, ['sunrise'], itemWeights);
         if (sunrise) merged.sunrise = sunrise;
@@ -424,29 +690,129 @@ function mergeDaily(datasets, weights) {
         const sunset = weightedTimeIso(entries, ['sunset'], itemWeights);
         if (sunset) merged.sunset = sunset;
 
+        const dayHours = hourlyByDate.get(date) ?? [];
+
+        // Precipitation probability: prefer daily source fields, fall back
+        // to the max merged hourly probability for that day.
+        let precipProbability = weightedAverageAlias(
+            entries, ['precipProbability', 'precipitationProbability', 'chanceOfRain'], itemWeights
+        );
+        if (precipProbability == null && dayHours.length > 0) {
+            const probs = dayHours.map(h => h.precipProbability).filter(isNum);
+            if (probs.length > 0) precipProbability = Math.max(...probs);
+        }
+        if (precipProbability != null) merged.precipProbability = precipProbability;
+
+        // Precipitation total: prefer daily source sums, fall back to the
+        // sum of merged hourly amounts (only when the day is fully covered).
+        let precipSum = weightedAverageAlias(
+            entries, ['precipitationSum', 'precipSum'], itemWeights
+        );
+        if (precipSum == null && dayHours.length >= 20) {
+            const amounts = dayHours.map(h => h.precipAmount).filter(isNum);
+            if (amounts.length > 0) {
+                precipSum = Number(amounts.reduce((s, a) => s + a, 0).toFixed(1));
+            }
+        }
+        if (precipSum != null) merged.precipitationSum = precipSum;
+
+        // Max sustained wind for the day from merged hourly data
+        if (dayHours.length > 0) {
+            const dayWinds = dayHours.map(h => h.windSpeed).filter(isNum);
+            if (dayWinds.length > 0) merged.windMax = Math.max(...dayWinds);
+        }
+
+        // Per-day confidence: temperature + condition agreement for the day.
+        // Forecast disagreement naturally grows with lead time, so this
+        // gives users a feel for how solid each day of the forecast is.
+        if (entries.length >= 2) {
+            const highs = entries.map(e => e.high).filter(isNum);
+            const lows = entries.map(e => e.low).filter(isNum);
+            const spreads = [spreadOf(highs), spreadOf(lows)].filter(s => s != null);
+            const tempAgreement = spreads.length > 0
+                ? clamp01(1 - (spreads.reduce((s, v) => s + v, 0) / spreads.length) / 6)
+                : null;
+            const parts = [
+                { score: tempAgreement, weight: 0.6 },
+                { score: conditionAgreement, weight: 0.4 },
+            ].filter(p => p.score != null);
+            if (parts.length > 0) {
+                const totalWeight = parts.reduce((s, p) => s + p.weight, 0);
+                merged.confidence = Number(
+                    (parts.reduce((s, p) => s + p.score * p.weight, 0) / totalWeight).toFixed(2)
+                );
+            }
+        }
+        merged.sourceCount = entries.length;
+
         result.push(merged);
     }
 
     return result.sort((a, b) => new Date(a.date) - new Date(b.date));
 }
 
+/*
+ * SOURCE TRANSPARENCY
+ */
+
 /**
- * Aggregates weather data from multiple sources using weighted averaging,
- * condition voting, and confidence scoring.
+ * Per-source snapshot of current conditions with deviation from the final
+ * consensus, for the transparency UI.
+ * @param {Array<Object>} datasets - completed datasets
+ * @param {Array<number>} weights
+ * @param {Object} consensusCurrent - aggregated current object
+ * @param {Object} outlierFields - field → source ids dropped as outliers
+ * @returns {Array<Object>}
+ */
+function buildSourceDetails(datasets, weights, consensusCurrent, outlierFields) {
+    const tempOutliers = new Set(outlierFields.temp ?? []);
+    return datasets.map((d, i) => {
+        const c = d.current ?? {};
+        const detail = {
+            id: d.source ?? 'unknown',
+            weight: weights[i],
+            temp: isNum(c.temp) ? c.temp : null,
+            feelsLike: isNum(c.feelsLike) ? c.feelsLike : null,
+            condition: c.condition ?? null,
+            windSpeed: isNum(c.windSpeed) ? c.windSpeed : null,
+            humidity: isNum(c.humidity) ? c.humidity : null,
+            pressure: isNum(c.pressure) ? c.pressure : null,
+        };
+        detail.tempDeviation = isNum(c.temp) && isNum(consensusCurrent.temp)
+            ? Number((c.temp - consensusCurrent.temp).toFixed(1))
+            : null;
+        detail.isTempOutlier = tempOutliers.has(detail.id);
+        return detail;
+    });
+}
+
+/*
+ * ENTRY POINT
+ */
+
+/**
+ * Aggregates weather data from multiple sources using data completion,
+ * robust weighted averaging, severity-aware condition voting, and
+ * per-metric confidence scoring.
  *
  * @param {Array<Object>} datasets - Array of normalized weather data objects,
  *   each with { source, current, hourly, daily }
- * @returns {Object} Aggregated weather data with confidence and sources
+ * @returns {Object} Aggregated weather data with confidence, breakdown,
+ *   per-source details, and sources
  */
 export function aggregateWeatherData(datasets) {
     const validDatasets = (Array.isArray(datasets) ? datasets : [])
-        .filter(d => d && typeof d === 'object' && d.current);
+        .filter(d => d && typeof d === 'object' && d.current)
+        .map(completeDataset);
 
     if (validDatasets.length === 0) {
         throw new Error('No datasets provided for aggregation');
     }
 
-    // Single-source passthrough
+    const sources = validDatasets.map(d => d.source || 'unknown');
+    const weights = validDatasets.map(d => getWeight(d.source));
+
+    // Single-source passthrough (still completed)
     if (validDatasets.length === 1) {
         const d = validDatasets[0];
         return {
@@ -454,19 +820,28 @@ export function aggregateWeatherData(datasets) {
             hourly: d.hourly ? [...d.hourly] : [],
             daily: d.daily ? [...d.daily] : [],
             confidence: 1.0,
-            sources: [d.source || 'unknown'],
+            confidenceBreakdown: null,
+            sourceCount: 1,
+            sources,
+            sourceDetails: buildSourceDetails(validDatasets, weights, d.current, {}),
+            outlierFields: {},
         };
     }
 
-    const sources = validDatasets.map(d => d.source || 'unknown');
-    const weights = validDatasets.map(d => getWeight(d.source));
+    const { current, outlierFields } = aggregateCurrent(validDatasets, weights);
+    const hourly = mergeHourly(validDatasets, weights);
+    const daily = mergeDaily(validDatasets, weights, hourly);
+    const { overall, breakdown } = calculateConfidenceDetailed(validDatasets, weights);
 
     return {
-        current: aggregateCurrent(validDatasets, weights),
-        hourly: mergeHourly(validDatasets, weights),
-        daily: mergeDaily(validDatasets, weights),
-        confidence: calculateConfidence(validDatasets),
+        current,
+        hourly,
+        daily,
+        confidence: overall,
+        confidenceBreakdown: breakdown,
         sourceCount: validDatasets.length,
         sources,
+        sourceDetails: buildSourceDetails(validDatasets, weights, current, outlierFields),
+        outlierFields,
     };
 }
