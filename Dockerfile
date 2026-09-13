@@ -1,5 +1,9 @@
-# Stage 1: Build the React application
-FROM node:20-alpine AS build
+# syntax=docker/dockerfile:1
+
+# Stage 1: Build the React application.
+# Pinned to BUILDPLATFORM so the Vite build runs natively even when the
+# target is arm64 - the dist output is architecture-independent.
+FROM --platform=$BUILDPLATFORM node:20-alpine AS build
 
 WORKDIR /app
 
@@ -13,7 +17,9 @@ RUN npm run build
 FROM nginx:alpine
 
 # OCI image labels for GHCR metadata display
-LABEL org.opencontainers.image.source="https://github.com/aleksbgs/weather-project"
+ARG VERSION=dev
+LABEL org.opencontainers.image.version="${VERSION}"
+LABEL org.opencontainers.image.source="https://github.com/aleksgain/weather-project"
 LABEL org.opencontainers.image.description="Self-hosted weather aggregation app with multi-API data, interactive maps, and advanced meteorological stats"
 LABEL org.opencontainers.image.licenses="MIT"
 
