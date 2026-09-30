@@ -114,8 +114,11 @@ jobs:
         env:
           ANY: ${{ steps.changed.outputs.any }}
           NEXT: ${{ steps.version.outputs.next }}
+          STATUS: ${{ job.status }}
         run: |
-          if [ "$ANY" = 'true' ]; then
+          if [ "$STATUS" != 'success' ]; then
+            echo "Dependency update **failed** (${NEXT:-no tag cut}); see the failing step above." >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$ANY" = 'true' ]; then
             echo "Dependencies updated and tagged **${NEXT}**; ci.yml takes over from here." >> "$GITHUB_STEP_SUMMARY"
           else
             echo 'No dependency updates available.' >> "$GITHUB_STEP_SUMMARY"
