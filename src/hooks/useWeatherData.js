@@ -113,7 +113,12 @@ export function useWeatherData(location) {
     }
   }, [latitude, longitude]);
 
+  // Initial load / location change. loadData hydrates from the persisted
+  // snapshot synchronously before fetching, which trips
+  // react-hooks/set-state-in-effect (stricter as of 7.1). The extra render is
+  // intentional: show cached data immediately, then refresh in the background.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData();
   }, [loadData]);
 
