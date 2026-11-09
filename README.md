@@ -226,10 +226,6 @@ src/
 - **Geolocation**: The app requests location only when loading; no coordinates are stored or transmitted except to weather APIs.
 - **Environment files**: Never commit `.env` with secrets. Use `.env.example` as a template.
 
-## License
-
-MIT
-
 ## Android app (no server needed)
 
 The same frontend is packaged as an Android APK with [Capacitor](https://capacitorjs.com/). Everything runs on the phone: weather providers are called directly from the device, and API keys, data-source toggles, saved cities, units and theme are stored locally (Menu → Settings). No homelab, VPN or Docker required.
@@ -237,14 +233,6 @@ The same frontend is packaged as an Android APK with [Capacitor](https://capacit
 - **Download:** every GitHub release has a `weather-<version>.apk` attached. Menu → About → *Check for updates* compares against the latest release.
 - **Local build:** `npm run android:sync`, then `cd android && ./gradlew assembleDebug` (needs JDK 21 + Android SDK 36).
 
-### Release signing (one-time)
+## License
 
-Android only upgrades an installed app in place if the new APK is signed with the same key, so CI needs a stable keystore:
-
-```sh
-keytool -genkeypair -v -keystore weather-release.jks -alias weather \
-  -keyalg RSA -keysize 4096 -validity 10000
-base64 -w0 weather-release.jks   # -> ANDROID_KEYSTORE_BASE64
-```
-
-Add repository secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`. Without them CI still builds a debug-signed APK, which installs but can't be upgraded across builds. Keep the `.jks` backed up outside the repo — losing it means users must uninstall to update.
+MIT
