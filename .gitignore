@@ -36,3 +36,8 @@ dist-ssr
 .worktrees/
 .security-key
 logs/security/
+
+# Android signing material (never commit)
+*.keystore
+*.jks
+android/keystore.properties

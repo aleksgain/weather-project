@@ -28,8 +28,35 @@ import { aggregateWeatherData } from './aggregator';
 /** Max age before refetching (persisted + in-memory); aligns with background refresh interval */
 export const WEATHER_UI_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
 
-const UI_CACHE_STORAGE_KEY = 'weatherUiBundle';
-const UI_CACHE_VERSION = 1;
+/** Per-location snapshots so switching between saved cities is instant and works offline. */
+const UI_CACHE_STORAGE_KEY = 'weatherUiBundles';
+const LEGACY_UI_CACHE_STORAGE_KEY = 'weatherUiBundle';
+const UI_CACHE_VERSION = 2;
+const UI_CACHE_MAX_ENTRIES = 10;
+
+function bundleKey(coords) {
+    return `${coords.lat.toFixed(2)},${coords.lon.toFixed(2)}`;
+}
+
+function readBundleMap() {
+    try {
+        localStorage.removeItem(LEGACY_UI_CACHE_STORAGE_KEY);
+        const raw = localStorage.getItem(UI_CACHE_STORAGE_KEY);
+        if (!raw) return {};
+        const parsed = JSON.parse(raw);
+        if (parsed?.v !== UI_CACHE_VERSION || typeof parsed.entries !== 'object' || !parsed.entries) {
+            return {};
+        }
+        return parsed.entries;
+    } catch {
+        try {
+            localStorage.removeItem(UI_CACHE_STORAGE_KEY);
+        } catch {
+            // ignore
+        }
+        return {};
+    }
+}
 
 // Simple in-memory cache (session); hydrated from localStorage on cold start
 const cache = {
@@ -106,7 +133,7 @@ export function clearMemoryCache() {
 }
 
 /**
- * Clear in-memory and persisted UI cache (e.g. location change).
+ * Clear in-memory and all persisted snapshots (e.g. data sources changed).
  */
 export function clearCache() {
     clearMemoryCache();
@@ -137,23 +164,11 @@ export function hydrateMemoryCacheFromSnapshot(data, lat, lon, fetchedAt) {
 export function readPersistedUiBundle(lat, lon) {
     try {
         const coords = validateCoordinates(lat, lon);
-        const raw = localStorage.getItem(UI_CACHE_STORAGE_KEY);
-        if (!raw) return null;
-        const parsed = JSON.parse(raw);
-        if (parsed?.v !== UI_CACHE_VERSION || !parsed?.data || typeof parsed.fetchedAt !== 'number') {
-            return null;
-        }
-        const sameLocation =
-            Math.abs(parsed.lat - coords.lat) < 0.01 && Math.abs(parsed.lon - coords.lon) < 0.01;
-        if (!sameLocation) return null;
-        const alerts = Array.isArray(parsed.alerts) ? parsed.alerts : [];
-        return { data: parsed.data, alerts, fetchedAt: parsed.fetchedAt };
+        const entry = readBundleMap()[bundleKey(coords)];
+        if (!entry?.data || typeof entry.fetchedAt !== 'number') return null;
+        const alerts = Array.isArray(entry.alerts) ? entry.alerts : [];
+        return { data: entry.data, alerts, fetchedAt: entry.fetchedAt };
     } catch {
-        try {
-            localStorage.removeItem(UI_CACHE_STORAGE_KEY);
-        } catch {
-            // ignore
-        }
         return null;
     }
 }
@@ -166,15 +181,16 @@ export function readPersistedUiBundle(lat, lon) {
 export function writePersistedUiBundle(lat, lon, data, alerts, fetchedAt) {
     try {
         const coords = validateCoordinates(lat, lon);
-        const payload = {
-            v: UI_CACHE_VERSION,
-            lat: coords.lat,
-            lon: coords.lon,
-            data,
-            alerts,
-            fetchedAt,
-        };
-        localStorage.setItem(UI_CACHE_STORAGE_KEY, JSON.stringify(payload));
+        const entries = readBundleMap();
+        entries[bundleKey(coords)] = { data, alerts, fetchedAt };
+        // Keep only the most recently fetched locations.
+        const kept = Object.entries(entries)
+            .sort(([, x], [, y]) => (y.fetchedAt || 0) - (x.fetchedAt || 0))
+            .slice(0, UI_CACHE_MAX_ENTRIES);
+        localStorage.setItem(
+            UI_CACHE_STORAGE_KEY,
+            JSON.stringify({ v: UI_CACHE_VERSION, entries: Object.fromEntries(kept) })
+        );
     } catch {
         // quota / private mode — ignore
     }

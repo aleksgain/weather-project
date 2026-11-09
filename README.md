@@ -226,6 +226,13 @@ src/
 - **Geolocation**: The app requests location only when loading; no coordinates are stored or transmitted except to weather APIs.
 - **Environment files**: Never commit `.env` with secrets. Use `.env.example` as a template.
 
+## Android app (no server needed)
+
+The same frontend is packaged as an Android APK with [Capacitor](https://capacitorjs.com/). Everything runs on the phone: weather providers are called directly from the device, and API keys, data-source toggles, saved cities, units and theme are stored locally (Menu → Settings). No homelab, VPN or Docker required.
+
+- **Download:** every GitHub release has a `weather-<version>.apk` attached. Menu → About → *Check for updates* compares against the latest release.
+- **Local build:** `npm run android:sync`, then `cd android && ./gradlew assembleDebug` (needs JDK 21 + Android SDK 36).
+
 ## License
 
 MIT

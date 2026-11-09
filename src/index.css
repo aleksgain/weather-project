@@ -129,8 +129,19 @@
   box-sizing: border-box;
 }
 
+/* Edge-to-edge on Android (viewport-fit=cover): Capacitor injects
+   --safe-area-inset-* for WebViews that don't report env() correctly. On the
+   web both resolve to 0 except on notched iOS devices. */
+:root {
+  --safe-top: max(env(safe-area-inset-top, 0px), var(--safe-area-inset-top, 0px));
+  --safe-right: max(env(safe-area-inset-right, 0px), var(--safe-area-inset-right, 0px));
+  --safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px));
+  --safe-left: max(env(safe-area-inset-left, 0px), var(--safe-area-inset-left, 0px));
+}
+
 body {
   margin: 0;
+  padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
   min-width: 320px;
   min-height: 100vh;
   background: var(--bg-primary);
