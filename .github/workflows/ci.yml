@@ -47,6 +47,77 @@ jobs:
           path: dist/
           if-no-files-found: ignore
 
+  # ---------------------------------------------------------------------
+  # Android APK (Capacitor). Same web build, bundled into the app so the
+  # phone needs no server. Signed when the ANDROID_* secrets exist; a
+  # stable key is required for in-place upgrades between versions.
+  # ---------------------------------------------------------------------
+  android:
+    needs: test
+    runs-on: ubuntu-latest
+    env:
+      HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "APP_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          else
+            base=$(node -p "require('./package.json').version")
+            echo "APP_VERSION=${base}-dev.${GITHUB_RUN_NUMBER}+${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+          fi
+          # Monotonic, survives re-runs; Android only needs it to increase.
+          echo "APP_VERSION_CODE=$(( GITHUB_RUN_NUMBER * 10 + GITHUB_RUN_ATTEMPT ))" >> "$GITHUB_ENV"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web assets + sync Capacitor
+        run: npm run android:sync
+
+      - name: Decode keystore
+        if: env.HAS_KEYSTORE == 'true'
+        run: |
+          echo '${{ secrets.ANDROID_KEYSTORE_BASE64 }}' | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+
+      - name: Build APK
+        working-directory: android
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ "$HAS_KEYSTORE" = "true" ]; then
+            ./gradlew --no-daemon assembleRelease
+            src=app/build/outputs/apk/release/app-release.apk
+          else
+            echo "::warning::ANDROID_KEYSTORE_BASE64 not set - building a debug-signed APK (cannot upgrade in place across runners)."
+            ./gradlew --no-daemon assembleDebug
+            src=app/build/outputs/apk/debug/app-debug.apk
+          fi
+          mkdir -p "$RUNNER_TEMP/apk"
+          cp "$src" "$RUNNER_TEMP/apk/weather-${APP_VERSION%%+*}.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: ${{ runner.temp }}/apk/*.apk
+          if-no-files-found: error
+
   # Each architecture is built on a runner of that architecture - no QEMU.
   # The legs push by digest only, then `merge` assembles the tag list into a
   # single multi-arch manifest.
@@ -167,23 +238,34 @@ jobs:
 
   release-tag:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: merge
+    needs: [merge, android]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: apk
+          path: apk
+
       - name: Create GitHub release (tag)
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
+          files: apk/*.apk
 
   release-master:
     if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-    needs: merge
+    needs: [merge, android]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: apk
+          path: apk
+
       - name: Generate release metadata
         id: meta
         run: |
@@ -198,3 +280,4 @@ jobs:
           target_commitish: ${{ github.sha }}
           prerelease: true
           generate_release_notes: true
+          files: apk/*.apk

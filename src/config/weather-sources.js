@@ -1,9 +1,13 @@
 /**
  * Configuration for available weather API sources.
- * 
- * In Docker, these are injected at runtime via window.__WEATHER_CONFIG__
- * For local dev, they're read from Vite's import.meta.env
+ *
+ * Precedence (highest first):
+ *   1. User settings saved on the device (see ./userSettings.js)
+ *   2. Docker runtime config, injected via window.__WEATHER_CONFIG__
+ *   3. Vite build-time env vars (local dev)
+ *   4. Hard-coded defaults below
  */
+import { readUserSettings } from './userSettings';
 
 // Runtime config (injected by Docker entrypoint) or build-time config
 const runtimeConfig = typeof window !== 'undefined' ? window.__WEATHER_CONFIG__ : null;
@@ -94,3 +98,35 @@ export const defaultLocation = {
 export const uiConfig = {
   showSources: parseBool(getEnvVar('SHOW_SOURCES'), false),
 };
+
+/** Deployment-level values (before user overrides), for the settings UI. */
+export const deploymentDefaults = Object.freeze({
+  sources: Object.fromEntries(
+    Object.values(weatherSources).map((s) => [
+      s.id,
+      Object.freeze({ enabled: s.enabled, hasKey: Boolean(s.key), key: s.key || '' }),
+    ])
+  ),
+  showSources: uiConfig.showSources,
+});
+
+/**
+ * Apply user settings on top of deployment defaults. Mutates the exported
+ * objects in place so every importer sees the change without a reload.
+ * @param {ReturnType<typeof readUserSettings>} settings
+ */
+export function applyUserSettings(settings = readUserSettings()) {
+  for (const source of Object.values(weatherSources)) {
+    const base = deploymentDefaults.sources[source.id];
+    const override = settings.sources?.[source.id] ?? {};
+    source.enabled = typeof override.enabled === 'boolean' ? override.enabled : base.enabled;
+    if (source.needsKey) {
+      const userKey = typeof override.key === 'string' ? override.key.trim() : '';
+      source.key = userKey || base.key;
+    }
+  }
+  uiConfig.showSources =
+    typeof settings.showSources === 'boolean' ? settings.showSources : deploymentDefaults.showSources;
+}
+
+applyUserSettings();

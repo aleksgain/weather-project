@@ -550,3 +550,517 @@
     align-items: center;
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* Header bar: menu · search · refresh                                 */
+/* ------------------------------------------------------------------ */
+.app-header-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  min-width: 0;
+}
+
+.app-header-bar .app-header-location {
+  flex: 1;
+  min-width: 0;
+}
+
+.app-header-bar .refresh-button {
+  flex-shrink: 0;
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--card-radius-sm);
+  color: var(--text-secondary);
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.icon-button:hover {
+  background: var(--glass-bg-hover);
+  border-color: var(--glass-border-hover);
+  color: var(--text-primary);
+}
+
+.desktop-only {
+  display: contents;
+}
+
+@media (max-width: 767px) {
+  /* Theme + units live in the menu on phones. */
+  .desktop-only {
+    display: none;
+  }
+
+  .app-header-controls:empty {
+    display: none;
+  }
+
+  .app-header {
+    margin-bottom: var(--spacing-sm);
+  }
+}
+
+.retry-button.secondary {
+  background: var(--glass-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--glass-border);
+}
+
+.retry-button.secondary:hover {
+  background: var(--glass-bg-hover);
+}
+
+/* ------------------------------------------------------------------ */
+/* Saved-city chips (quick switch)                                    */
+/* ------------------------------------------------------------------ */
+.city-chips {
+  display: flex;
+  gap: var(--spacing-xs);
+  overflow-x: auto;
+  margin: 0 0 var(--spacing-md);
+  padding-bottom: 2px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.city-chips::-webkit-scrollbar {
+  display: none;
+}
+
+.city-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 0 var(--spacing-sm);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: var(--glass-bg);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.city-chip.active {
+  color: var(--text-primary);
+  border-color: var(--accent-cyan);
+  background: color-mix(in srgb, var(--accent-cyan) 14%, transparent);
+}
+
+@media (max-width: 767px) {
+  .city-chip {
+    min-height: 36px;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Drawer                                                              */
+/* ------------------------------------------------------------------ */
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  background: rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.drawer-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 901;
+  display: flex;
+  flex-direction: column;
+  width: min(380px, 88vw);
+  padding-top: var(--safe-top);
+  padding-bottom: var(--safe-bottom);
+  padding-left: var(--safe-left);
+  background: var(--bg-primary);
+  border-right: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-lg);
+  transform: translateX(-102%);
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  visibility: hidden;
+}
+
+.drawer.open {
+  transform: translateX(0);
+  visibility: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer,
+  .drawer-backdrop {
+    transition: none;
+  }
+}
+
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-md) var(--spacing-md) var(--spacing-sm);
+}
+
+.drawer-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 var(--spacing-md) var(--spacing-xl);
+}
+
+.drawer-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md) 0;
+  border-top: 1px solid var(--glass-border);
+}
+
+.drawer-section:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.drawer-section-title {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.drawer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  min-height: 44px;
+}
+
+.drawer-row-label {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 0.92rem;
+  color: var(--text-primary);
+}
+
+.drawer-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.drawer-hint.warn {
+  color: var(--accent-orange);
+}
+
+.drawer-hint.ok {
+  color: var(--accent-green);
+}
+
+.drawer-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  min-height: 44px;
+  padding: 0 var(--spacing-md);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--card-radius-sm);
+  background: var(--glass-bg);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.drawer-button.primary {
+  background: var(--accent-cyan);
+  border-color: var(--accent-cyan);
+  color: #07080a;
+  font-weight: 600;
+}
+
+.drawer-button:disabled {
+  opacity: 0.45;
+}
+
+.drawer-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: var(--accent-cyan);
+  text-decoration: none;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+/* City list */
+.city-list,
+.source-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.city-list li {
+  display: flex;
+  align-items: center;
+  border-radius: var(--card-radius-sm);
+  border: 1px solid transparent;
+}
+
+.city-list li.active {
+  border-color: var(--accent-cyan);
+  background: color-mix(in srgb, var(--accent-cyan) 10%, transparent);
+}
+
+.city-select {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--spacing-sm);
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 var(--spacing-sm);
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  text-align: left;
+  font-size: 0.95rem;
+}
+
+.city-select svg {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.city-name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.city-sub {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.city-actions {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.city-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+}
+
+.city-actions button:disabled {
+  opacity: 0.25;
+}
+
+.city-actions button:last-child:hover {
+  color: var(--accent-red);
+}
+
+.drawer-add-city {
+  margin-top: var(--spacing-xs);
+}
+
+/* Segmented control */
+.segmented {
+  display: inline-flex;
+  flex-shrink: 0;
+  padding: 3px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--card-radius-sm);
+  background: var(--glass-bg);
+}
+
+.segmented button {
+  min-height: 36px;
+  padding: 0 var(--spacing-sm);
+  border: none;
+  border-radius: calc(var(--card-radius-sm) - 3px);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media (max-width: 767px) {
+  .segmented button {
+    min-height: 36px;
+  }
+}
+
+.segmented button.active {
+  background: var(--glass-bg-hover);
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px var(--glass-border-hover);
+}
+
+/* Switch */
+.switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 46px;
+  height: 28px;
+  min-height: 28px !important;
+  padding: 0;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: var(--glass-bg-hover);
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.switch.on {
+  background: var(--accent-cyan);
+  border-color: var(--accent-cyan);
+}
+
+.switch-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s ease;
+}
+
+.switch.on .switch-thumb {
+  transform: translateX(18px);
+}
+
+.source-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 4px;
+}
+
+.key-input {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--card-radius-sm);
+  background: var(--glass-bg);
+}
+
+.key-input input {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 var(--spacing-sm);
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.82rem;
+}
+
+.key-input button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  min-height: 40px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.about-version {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.update-checker,
+.update-available {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--spacing-xs);
+}
+
+/* Keep the search field the same height as the 44px icon buttons beside it.
+   (The mobile `button { min-height: 44px }` rule otherwise inflates the inline
+   "use my location" button and, with the panel padding, the whole field.) */
+.app-header-bar .app-header-location > div > .glass-panel,
+.drawer-add-city > div > .glass-panel {
+  min-height: 44px;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+.app-header-bar .app-header-location .glass-panel button,
+.drawer-add-city .glass-panel button {
+  min-height: 40px;
+}
+
+.app-header-bar .app-header-location input,
+.drawer-add-city input {
+  min-height: 42px;
+}

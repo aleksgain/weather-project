@@ -1,10 +1,14 @@
-import { useEffect, useState, useCallback, useMemo, lazy, Suspense } from 'react';
-import { RefreshCw, CloudOff } from 'lucide-react';
+import { useEffect, useRef, useState, useCallback, useMemo, lazy, Suspense } from 'react';
+import { RefreshCw, CloudOff, Menu, Navigation } from 'lucide-react';
+import { Capacitor, SystemBars, SystemBarsStyle } from '@capacitor/core';
+import { App as NativeApp } from '@capacitor/app';
 import { useGeolocation } from './hooks/useGeolocation';
+import { useCities } from './hooks/useCities';
 import { useTheme } from './hooks/useTheme';
 import { useWeatherData } from './hooks/useWeatherData';
 import { clearCache } from './services/weather';
-import { uiConfig } from './config/weather-sources';
+import { uiConfig, applyUserSettings } from './config/weather-sources';
+import { readUserSettings, writeUserSettings } from './config/userSettings';
 import AtmosphericHero from './components/AtmosphericHero';
 import Forecast from './components/Forecast';
 import DetailedMetrics from './components/DetailedMetrics';
@@ -16,6 +20,7 @@ import SunriseSunset from './components/SunriseSunset';
 import WindCompass from './components/WindCompass';
 import ThemeToggle from './components/ThemeToggle';
 import SourceBreakdown from './components/SourceBreakdown';
+import SettingsDrawer from './components/SettingsDrawer';
 
 // Lazy-load heavy map components
 const WeatherMapOverlays = lazy(() => import('./components/WeatherMapOverlays'));
@@ -36,45 +41,16 @@ function getConditionCategory(weatherData) {
   return 'cloudy';
 }
 
-const STORAGE_KEY = 'weatherLocation';
-
-/** Read manualLocation from localStorage with error handling */
-function readStoredLocation() {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return null;
-    const parsed = JSON.parse(stored);
-    if (
-      typeof parsed?.lat === 'number' &&
-      typeof parsed?.lon === 'number' &&
-      typeof parsed?.name === 'string'
-    ) {
-      return parsed;
-    }
-    return null;
-  } catch {
-    localStorage.removeItem(STORAGE_KEY);
-    return null;
-  }
-}
+const isNative = Capacitor.isNativePlatform();
 
 function App() {
   const geo = useGeolocation();
-  const { themeMode, resolvedTheme, cycleThemeMode } = useTheme();
-  const [manualLocation, setManualLocation] = useState(readStoredLocation);
-
-  // Persist manualLocation to localStorage
-  useEffect(() => {
-    if (manualLocation) {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(manualLocation));
-      } catch {
-        // Storage full or unavailable — ignore
-      }
-    } else {
-      localStorage.removeItem(STORAGE_KEY);
-    }
-  }, [manualLocation]);
+  const { themeMode, resolvedTheme, setThemeMode, cycleThemeMode } = useTheme();
+  const { cities, activeId, activeCity, addCity, removeCity, moveCity, selectCity } = useCities();
+  const manualLocation = activeCity;
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  // Bumped when source settings change so uiConfig-dependent UI re-renders.
+  const [, setSettingsVersion] = useState(0);
 
   // When manualLocation is set, use it directly (skip geolocation)
   const effectiveOverride = useMemo(
@@ -108,6 +84,40 @@ function App() {
     toggleUnit,
   } = useWeatherData(manualLocation || !geo.loading ? activeLocation : null);
 
+  // No GPS fix (denied/unavailable) but cities are saved: switch to the first
+  // one instead of the deployment default location. Once per session, so
+  // picking "Current location" again still retries GPS.
+  const autoPickedRef = useRef(false);
+  useEffect(() => {
+    if (autoPickedRef.current || activeId !== null || geo.loading || !geo.usingDefault) return;
+    if (cities.length === 0) return;
+    autoPickedRef.current = true;
+    selectCity(cities[0].id);
+  }, [activeId, geo.loading, geo.usingDefault, cities, selectCity]);
+
+  // Android: status-bar icon contrast follows the theme; back closes the drawer.
+  useEffect(() => {
+    if (!isNative) return;
+    SystemBars.setStyle({
+      style: resolvedTheme === 'dark' ? SystemBarsStyle.Dark : SystemBarsStyle.Light,
+    }).catch(() => {});
+  }, [resolvedTheme]);
+
+  const drawerOpenRef = useRef(drawerOpen);
+  useEffect(() => {
+    drawerOpenRef.current = drawerOpen;
+  }, [drawerOpen]);
+  useEffect(() => {
+    if (!isNative) return undefined;
+    const handle = NativeApp.addListener('backButton', () => {
+      if (drawerOpenRef.current) setDrawerOpen(false);
+      else NativeApp.exitApp();
+    });
+    return () => {
+      handle.then((h) => h.remove());
+    };
+  }, []);
+
   // Set condition-responsive body class
   useEffect(() => {
     const category = getConditionCategory(weatherData);
@@ -117,19 +127,83 @@ function App() {
     };
   }, [weatherData]);
 
-  /** Set a persistent manual location, clear cache, and reload weather */
-  const handleLocationChange = useCallback((location) => {
-    setManualLocation({ lat: location.lat, lon: location.lon, name: location.name });
-    clearCache();
-    // refresh will be triggered by activeLocation change via useWeatherData
-  }, []);
+  /** Add (or re-select) a saved city and make it active. Snapshots are per-location, so no cache wipe. */
+  const handleLocationChange = useCallback(
+    (location) => addCity({ lat: location.lat, lon: location.lon, name: location.name }),
+    [addCity]
+  );
 
-  /** Clear manual location, revert to geolocation detection */
+  /** Switch to device location. */
   const handleResetLocation = useCallback(() => {
-    setManualLocation(null);
-    clearCache();
+    selectCity(null);
     geo.retry();
-  }, [geo]);
+  }, [geo, selectCity]);
+
+  const handleSelectCity = useCallback(
+    (id) => {
+      if (id === null) handleResetLocation();
+      else selectCity(id);
+    },
+    [handleResetLocation, selectCity]
+  );
+
+  const handleUnitChange = useCallback(
+    (next) => {
+      if (next !== unit) toggleUnit();
+    },
+    [unit, toggleUnit]
+  );
+
+  /** Persist source settings, apply them live, and refetch with the new mix. */
+  const handleSaveSources = useCallback(
+    (draft) => {
+      const prev = readUserSettings();
+      const sources = {};
+      for (const [id, d] of Object.entries(draft.sources)) {
+        sources[id] = { enabled: d.enabled, key: d.key.trim() };
+      }
+      writeUserSettings({ ...prev, sources, showSources: draft.showSources });
+      applyUserSettings();
+      clearCache();
+      setSettingsVersion((v) => v + 1);
+      refresh();
+    },
+    [refresh]
+  );
+
+  const closeDrawer = useCallback(() => setDrawerOpen(false), []);
+
+  const drawer = (
+    <SettingsDrawer
+      open={drawerOpen}
+      onClose={closeDrawer}
+      isNative={isNative}
+      cities={cities}
+      activeId={activeId}
+      currentLocationName={geo.usingDefault ? null : geo.locationName}
+      onSelectCity={handleSelectCity}
+      onAddCity={handleLocationChange}
+      onRemoveCity={removeCity}
+      onMoveCity={moveCity}
+      unit={unit}
+      onUnitChange={handleUnitChange}
+      themeMode={themeMode}
+      onThemeChange={setThemeMode}
+      onSaveSources={handleSaveSources}
+    />
+  );
+
+  const menuButton = (
+    <button
+      type="button"
+      className="icon-button menu-button"
+      onClick={() => setDrawerOpen(true)}
+      aria-label="Open menu: locations, settings, about"
+      title="Menu"
+    >
+      <Menu size={20} aria-hidden="true" />
+    </button>
+  );
 
   if (loading || (!manualLocation && geo.loading)) {
     return (
@@ -152,6 +226,10 @@ function App() {
         <h1 className="error-title">Unable to Load Weather</h1>
         <p className="error-message">{error}</p>
         <div className="error-actions">
+          <button className="retry-button secondary" onClick={() => setDrawerOpen(true)}>
+            <Menu size={18} aria-hidden="true" />
+            Settings
+          </button>
           <button
             className="retry-button"
             onClick={refresh}
@@ -161,6 +239,7 @@ function App() {
             Try Again
           </button>
         </div>
+        {drawer}
       </div>
     );
   }
@@ -180,17 +259,16 @@ function App() {
   return (
     <div style={{ position: 'relative', width: '100%' }}>
       <header className="app-header">
-        <div className="app-header-location">
-          <LocationSearch
-            currentLocation={activeLocationName}
-            isManual={!!manualLocation}
-            onLocationSelect={handleLocationChange}
-            onReset={handleResetLocation}
-          />
-        </div>
-        <div className="app-header-controls">
-          <ThemeToggle mode={themeMode} resolvedTheme={resolvedTheme} onToggle={cycleThemeMode} />
-          <UnitToggle unit={unit} onToggle={toggleUnit} />
+        <div className="app-header-bar">
+          {menuButton}
+          <div className="app-header-location">
+            <LocationSearch
+              currentLocation={activeLocationName}
+              isManual={!!manualLocation}
+              onLocationSelect={handleLocationChange}
+              onReset={handleResetLocation}
+            />
+          </div>
           <button
             className={`refresh-button ${refreshing ? 'spinning' : ''}`}
             onClick={refresh}
@@ -200,6 +278,14 @@ function App() {
           >
             <RefreshCw size={20} aria-hidden="true" />
           </button>
+        </div>
+        <div className="app-header-controls">
+          <span className="desktop-only">
+            <ThemeToggle mode={themeMode} resolvedTheme={resolvedTheme} onToggle={cycleThemeMode} />
+          </span>
+          <span className="desktop-only">
+            <UnitToggle unit={unit} onToggle={toggleUnit} />
+          </span>
           {lastUpdated && (
             <span className="last-updated">
               Updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -213,6 +299,31 @@ function App() {
           )}
         </div>
       </header>
+
+      {cities.length > 0 && (
+        <nav className="city-chips" aria-label="Saved locations">
+          <button
+            type="button"
+            className={`city-chip ${activeId === null ? 'active' : ''}`}
+            onClick={() => handleSelectCity(null)}
+            aria-pressed={activeId === null}
+          >
+            <Navigation size={14} aria-hidden="true" />
+            <span className="sr-only">Current location</span>
+          </button>
+          {cities.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              className={`city-chip ${activeId === c.id ? 'active' : ''}`}
+              onClick={() => handleSelectCity(c.id)}
+              aria-pressed={activeId === c.id}
+            >
+              {c.name}
+            </button>
+          ))}
+        </nav>
+      )}
 
       <main id="main-content" tabIndex={-1}>
         <WeatherAlerts alerts={alerts} />
@@ -284,6 +395,7 @@ function App() {
           <p>Built with React & Vite</p>
         </footer>
       </main>
+      {drawer}
     </div>
   );
 }

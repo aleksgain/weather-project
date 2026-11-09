@@ -1,0 +1,10 @@
+{
+  "appId": "io.github.aleksgain.weather",
+  "appName": "Weather",
+  "webDir": "dist",
+  "appendUserAgent": "WeatherApp/1.0 (+https://github.com/aleksgain/weather-project)",
+  "backgroundColor": "#07080a",
+  "android": {
+    "allowMixedContent": false
+  }
+}
